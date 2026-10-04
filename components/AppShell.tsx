@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
-  CalendarDays, Home, BookOpen, FileText, Settings, Search, Plus, LayoutDashboard,
-  TrendingUp, Moon, Sun, Target, NotebookTabs, BriefcaseBusiness
+  CalendarDays, BookOpen, FileText, Search, Plus, LayoutDashboard,
+  TrendingUp, Moon, Sun, Target, NotebookTabs, BriefcaseBusiness, Bell, Users
 } from './icons';
 import { useAuth } from './AuthProvider';
 import { useTheme } from './ThemeProvider';
@@ -22,6 +22,7 @@ const academicNav=[
   {href:'/planning',label:'Planning',icon:CalendarDays},
   {href:'/subjects',label:'Ressources',icon:BookOpen},
   {href:'/dashboard',label:'Objectifs',icon:Target},
+  {href:'/community',label:'Communauté',icon:Users},
 ];
 
 const financeNav=[
@@ -76,15 +77,16 @@ export function AppShell({children}:{children:React.ReactNode}){
       </div>
     </aside>
 
-    <div className="main-wrap">
+    <div className="main-wrap pw-main-frame">
       <header className="topbar pw-topbar">
         <button className="search-pill pw-search" onClick={()=>setCommand(true)}><Search size={17}/><span>{world==='academic'?'Rechercher une matière, un devoir, une ressource...':'Rechercher un actif, une analyse, une ressource...'}</span></button>
         <div className="world-switch" role="tablist" aria-label="Changer de monde">
           <button className={world==='academic'?'selected':''} onClick={()=>{setWorld('academic');router.push('/dashboard')}}><BookOpen size={16}/>Monde académique</button>
           <button className={world==='finance'?'selected':''} onClick={()=>{setWorld('finance');router.push('/dashboard')}}><TrendingUp size={16}/>Monde financier</button>
         </div>
-        <button className="icon-button theme-toggle" aria-label="Changer de thème" onClick={toggleTheme}>{theme==='light'?<Moon size={17}/>:<Sun size={17}/>}</button>
-        <Link href="/settings" className="avatar pw-avatar">A</Link>
+        <button className="notification-button" aria-label="Notifications"><Bell size={17}/><i/></button>
+        <button className="icon-button theme-toggle" aria-label="Changer de thème" onClick={toggleTheme}>{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button>
+        <Link href="/settings" className="avatar pw-avatar"><span className="avatar-orb"/></Link>
       </header>
       <main>{children}</main>
       <button className="floating-add" aria-label="Ajouter" onClick={()=>setQuick(true)}><Plus size={24}/></button>
