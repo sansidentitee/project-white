@@ -4,7 +4,7 @@ import {
   Clock3, Plus, Search, Settings, UserRound, ChevronRight, Command, CircleDot, Play,
   Pause, RotateCcw, Check, AlertCircle, Download, Target, LogOut, X, Link as LinkIcon,
   Upload, NotebookTabs, GraduationCap, LayoutDashboard, TrendingUp, Moon, Sun,
-  ArrowUpRight, ArrowDownRight, Trash2, WalletCards
+  ArrowUpRight, ArrowDownRight, Trash2, WalletCards, Bell, Users, Bell, Users
 } from 'lucide-react';
 
 export {
