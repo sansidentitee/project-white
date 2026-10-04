@@ -14,11 +14,11 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 const THEME_KEY = 'project-white-theme';
 
 export function ThemeProvider({children}:{children:React.ReactNode}) {
-  const [theme,setThemeState] = useState<Theme>('light');
+  const [theme,setThemeState] = useState<Theme>('dark');
 
   useEffect(()=>{
     const saved = localStorage.getItem(THEME_KEY);
-    const initial: Theme = saved === 'dark' ? 'dark' : 'light';
+    const initial: Theme = saved === 'light' ? 'light' : 'dark';
     setThemeState(initial);
     document.documentElement.dataset.theme = initial;
   },[]);
