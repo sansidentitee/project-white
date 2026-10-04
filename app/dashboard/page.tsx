@@ -61,7 +61,7 @@ export default function DashboardPage(){
   const winRate=closed.length?wins/closed.length*100:0;
   const tasks=finance?financeTasks:academicTasks;
 
-  const cards=finance?[
+  const cards:Array<[string,string,string,boolean]>=finance?[
     ['Portefeuille','12 450,00 €','+ 320,50 € · +2,64%',true],
     ['EURUSD','1,0824','+ 1,8%',true],
     ['XAUUSD','2 348,10','− 0,4%',false],
