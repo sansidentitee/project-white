@@ -76,3 +76,7 @@ Histoire apprendre partie 3 lundi
 ```
 
 Le parseur déduit automatiquement la matière, la date, le type, une durée par défaut et une priorité. Cette approche reste robuste même si Pronote change son interface.
+
+## Deployment
+
+Production is deployed from `main` on Vercel. Supabase public environment variables are configured in Vercel for production, preview, and development.
