@@ -4,7 +4,7 @@ import {
   Clock3, Plus, Search, Settings, UserRound, ChevronRight, Command, CircleDot, Play,
   Pause, RotateCcw, Check, AlertCircle, Download, Target, LogOut, X, Link as LinkIcon,
   Upload, NotebookTabs, GraduationCap, LayoutDashboard, TrendingUp, Moon, Sun,
-  ArrowUpRight, ArrowDownRight, Trash2, WalletCards, Bell, Users, Bell, Users
+  ArrowUpRight, ArrowDownRight, Trash2, WalletCards, Bell, Users
 } from 'lucide-react';
 
 export {
@@ -12,7 +12,7 @@ export {
   Clock3, Plus, Search, Settings, UserRound, ChevronRight, Command, CircleDot, Play,
   Pause, RotateCcw, Check, AlertCircle, Download, Target, LogOut, X, LinkIcon, Upload,
   NotebookTabs, GraduationCap, LayoutDashboard, TrendingUp, Moon, Sun, ArrowUpRight,
-  ArrowDownRight, Trash2, WalletCards
+  ArrowDownRight, Trash2, WalletCards, Bell, Users
 };
 
 export function SubjectIcon({icon,size=26}:{icon:string;size?:number}) {
