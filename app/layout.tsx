@@ -4,10 +4,11 @@ import { AuthProvider } from '@/components/AuthProvider';
 import { ProjectProvider } from '@/components/ProjectProvider';
 import { TradingProvider } from '@/components/TradingProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { WorldProvider } from '@/components/WorldProvider';
 
 export const metadata: Metadata = {
   title: 'Project White',
-  description: 'Dashboard personnel minimaliste pour les études et le journal de trading.'
+  description: 'Dashboard personnel académique et financier.'
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -15,11 +16,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="fr" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <AuthProvider>
-            <ProjectProvider>
-              <TradingProvider>{children}</TradingProvider>
-            </ProjectProvider>
-          </AuthProvider>
+          <WorldProvider>
+            <AuthProvider>
+              <ProjectProvider>
+                <TradingProvider>{children}</TradingProvider>
+              </ProjectProvider>
+            </AuthProvider>
+          </WorldProvider>
         </ThemeProvider>
       </body>
     </html>
