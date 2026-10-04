@@ -102,12 +102,12 @@ export default function DashboardPage(){
       </div>
 
       <div className="summary-row reference-summary-row">
-        {cards.map(([label,value,sub,state])=><div className="summary-card reference-summary-card" key={label}>
-          <div className="summary-card-top"><span>{label}</span><span>•••</span></div>
+        {cards.map(([label,value,sub,state],index)=>{const Icon=(finance?[TrendingUp,TrendingUp,TrendingUp,Target]:[BookOpen,CalendarDays,FileText,Target])[index];return <div className={`summary-card reference-summary-card kpi-card kpi-${index}`} key={label}>
+          <div className="summary-card-top"><span className="kpi-label"><span className="kpi-icon"><Icon size={16}/></span>{label}</span><span>•••</span></div>
           <div className="summary-value">{value}</div>
           <div className={`trend ${state}`}>{sub}</div>
           <Sparkline down={state==='down'}/>
-        </div>)}
+        </div>})}
       </div>
 
       <div className="dashboard-core reference-core">
