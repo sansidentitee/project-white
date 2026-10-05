@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Activity, Bell, BookOpen, CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight,
+  Bell, BookOpen, CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight,
   CircleUserRound, Clock3, FolderOpen, GraduationCap, HeartPulse, House, Landmark,
-  ListChecks, NotebookPen, Plus, Search, Sparkles, Target, TriangleAlert
+  ListChecks, Moon, Plus, Search, Sparkles, Sun, Target, TriangleAlert
 } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { useProject } from './ProjectProvider';
 import { QuickAddModal } from './QuickAddModal';
+import { useTheme } from './ThemeProvider';
 
 type Universe = 'academic' | 'islam' | 'finance' | 'health';
 
@@ -28,9 +29,8 @@ const academicNav = [
   {href:'/academic/calendar',label:'Calendrier · Agenda',icon:CalendarDays},
   {href:'/academic/subjects',label:'Matières',icon:BookOpen},
   {href:'/academic/errors',label:'Banque d’erreurs',icon:TriangleAlert},
-  {href:'/academic/revisions',label:'Révisions',icon:Clock3},
+  {href:'/academic/revisions',label:'Révisions · Focus',icon:Clock3},
   {href:'/academic/resources',label:'Ressources',icon:FolderOpen},
-  {href:'/academic/stats',label:'Progression',icon:Activity},
   {href:'/academic/goals',label:'Objectifs',icon:Target}
 ];
 
@@ -46,6 +46,7 @@ export function AppShell({children}:{children:React.ReactNode}) {
   const router = useRouter();
   const {user,configured,loading} = useAuth();
   const {state} = useProject();
+  const {theme,toggleTheme}=useTheme();
   const [quick,setQuick] = useState(false);
   const [query,setQuery] = useState('');
 
@@ -106,7 +107,12 @@ export function AppShell({children}:{children:React.ReactNode}) {
         )}
 
         <div className="os-sidebar-bottom">
-          {universe==='academic' && <button className="os-round-button" aria-label="Ajouter rapidement" onClick={()=>setQuick(true)}><Plus size={19}/></button>}
+          <div className="sidebar-quick-actions">
+            {universe==='academic' && <button className="os-round-button" aria-label="Ajouter rapidement" onClick={()=>setQuick(true)}><Plus size={19}/></button>}
+            <button className="os-round-button" aria-label={theme==='light'?'Activer le noir profond':'Activer le blanc glacier'} onClick={toggleTheme}>
+              {theme==='light'?<Moon size={18}/>:<Sun size={18}/>}
+            </button>
+          </div>
           <Link href="/settings" className="os-profile">
             <CircleUserRound size={23}/>
             <span><strong>{displayName}</strong><small>Mon espace</small></span>
