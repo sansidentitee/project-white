@@ -63,6 +63,17 @@ export type Resource = {
   createdAt?: string;
 };
 
+export type AcademicError = {
+  id: string;
+  subjectId?: string | null;
+  title: string;
+  details?: string | null;
+  correction?: string | null;
+  status: 'open' | 'review' | 'mastered';
+  nextReviewAt?: string | null;
+  createdAt?: string;
+};
+
 export type ProjectState = {
   subjects: Subject[];
   chapters: Chapter[];
@@ -70,4 +81,5 @@ export type ProjectState = {
   grades: Grade[];
   sessions: WorkSession[];
   resources: Resource[];
+  errors: AcademicError[];
 };
