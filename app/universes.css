@@ -1,0 +1,448 @@
+.life-page {
+  color: var(--os-text);
+  max-width: 1440px;
+  margin: 0 auto;
+  min-width: 0;
+}
+.life-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 8px 0 28px;
+  flex-wrap: wrap;
+}
+.life-heading h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 400;
+  margin: 8px 0 12px;
+}
+.life-heading p {
+  color: var(--os-muted);
+  max-width: 700px;
+  line-height: 1.6;
+}
+.life-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+}
+.life-mode {
+  font-size: 11px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  box-shadow: var(--os-inset);
+  color: var(--os-muted);
+}
+.life-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 28px;
+}
+.life-tabs a {
+  font-size: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  color: var(--os-muted);
+  box-shadow: var(--os-shadow-sm);
+  transition:
+    color 0.2s,
+    transform 0.2s;
+}
+.life-tabs a[aria-current="page"] {
+  box-shadow: var(--os-inset);
+  color: var(--os-text);
+}
+.life-tabs a:active {
+  transform: scale(0.98);
+}
+.life-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 26px;
+}
+.life-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px !important;
+  min-width: 0;
+}
+.life-metric span,
+.life-metric small {
+  font-size: 11px;
+  color: var(--os-muted);
+  line-height: 1.5;
+}
+.life-metric strong {
+  font-family: Georgia, serif;
+  font-size: 32px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.life-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+.life-panel {
+  margin-bottom: 24px;
+  padding: 28px !important;
+  min-width: 0;
+  animation: v3-rise 0.3s ease;
+}
+.life-panel h2 {
+  font-family: Georgia, serif;
+  font-size: 24px;
+  font-weight: 400;
+  margin: 0 0 22px;
+}
+.life-panel h3 {
+  font-weight: 500;
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+.life-panel p {
+  font-size: 13px;
+  line-height: 1.65;
+}
+.life-page small,
+.life-panel small {
+  font-size: 11px;
+  color: var(--os-muted);
+  line-height: 1.5;
+}
+.life-page label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+.life-page input,
+.life-page textarea,
+.life-page select,
+.life-form input,
+.life-form textarea,
+.life-form select {
+  background: var(--os-surface);
+  color: var(--os-text);
+  box-shadow: var(--os-inset);
+  border: 1px solid var(--os-line);
+  border-radius: 14px;
+  padding: 13px 15px;
+  font: inherit;
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+}
+.life-page input[type="checkbox"] {
+  width: auto;
+  box-shadow: none;
+}
+.life-page :focus-visible,
+.life-form :focus-visible {
+  outline: 2px solid var(--os-text);
+  outline-offset: 4px;
+}
+.life-form {
+  display: grid;
+  gap: 18px;
+}
+.life-form label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.life-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.life-panel-actions,
+.life-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.life-panel-actions {
+  margin-bottom: 20px;
+}
+.life-row {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--os-line);
+}
+.life-row small {
+  display: block;
+  margin-top: 7px;
+}
+.life-row span:first-child {
+  flex: 1;
+  min-width: 140px;
+}
+.life-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  margin: 12px 0;
+  border-radius: 18px;
+  box-shadow: var(--os-shadow-sm);
+  transition: transform 0.2s;
+}
+.life-link-card:hover {
+  transform: translateY(-2px);
+}
+.life-link-card strong {
+  font-weight: 500;
+  font-size: 14px;
+}
+.life-link-card span {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--os-muted);
+}
+.life-empty {
+  padding: 22px 0;
+  color: var(--os-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.life-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+.life-entry {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--os-line);
+  overflow-wrap: anywhere;
+}
+.life-entry > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.life-entry-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.life-text-button,
+.life-footer button {
+  background: none;
+  border: 0;
+  color: var(--os-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 9px;
+  cursor: pointer;
+}
+.life-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 20px 0 50px;
+  flex-wrap: wrap;
+}
+.life-prayers {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.life-prayers button {
+  border: 0;
+  background: var(--os-surface);
+  color: var(--os-text);
+  padding: 20px 8px;
+  border-radius: 18px;
+  box-shadow: var(--os-shadow-sm);
+  display: grid;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.life-prayers button[aria-pressed="true"] {
+  box-shadow: var(--os-inset);
+}
+.life-prayers small {
+  font-size: 9px;
+}
+.life-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 24px;
+}
+.life-week > div,
+.life-week button {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 5px;
+  box-shadow: var(--os-inset);
+  background: var(--os-surface);
+  color: var(--os-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.life-week button {
+  cursor: pointer;
+}
+.life-week button[aria-pressed="true"] {
+  outline: 1px solid var(--os-muted);
+}
+.life-week span {
+  font-size: 9px;
+  text-align: center;
+}
+.life-week small {
+  font-size: 9px;
+  text-align: center;
+}
+.life-chart {
+  margin: 0;
+}
+.life-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.life-chart figcaption {
+  font-size: 10px;
+  color: var(--os-muted);
+}
+.life-tag {
+  display: inline-block;
+  font-size: 11px;
+  margin: 4px 12px 4px 0;
+  color: var(--os-muted);
+}
+.life-prewrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.life-error {
+  color: var(--os-text);
+  border-left: 3px solid currentColor;
+  padding-left: 12px;
+  font-size: 12px;
+}
+.life-notice,
+.life-muted {
+  color: var(--os-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.life-negative {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.life-checkbox {
+  flex-direction: row !important;
+  align-items: center;
+}
+.life-review {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.life-panel progress {
+  appearance: none;
+  height: 7px;
+  width: 100%;
+  margin: 10px 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.life-panel progress::-webkit-progress-bar {
+  background: var(--os-line);
+}
+.life-panel progress::-webkit-progress-value {
+  background: var(--os-muted);
+  border-radius: 12px;
+}
+.life-panel progress::-moz-progress-bar {
+  background: var(--os-muted);
+}
+.life-page button:disabled,
+.life-form button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.life-page .trade-table {
+  overflow-x: auto;
+}
+.life-page .trade-row {
+  min-width: 640px;
+}
+.life-page .trading-layout {
+  min-width: 0;
+}
+.life-page .trading-layout > div {
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .life-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .life-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .life-panel {
+    padding: 20px !important;
+  }
+  .life-metrics {
+    gap: 12px;
+  }
+  .life-metric {
+    padding: 18px !important;
+  }
+  .life-metric strong {
+    font-size: 26px;
+  }
+  .life-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .life-entry {
+    flex-direction: column;
+  }
+  .life-prayers {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .life-week {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .life-tabs a {
+    font-size: 11px;
+    padding: 11px;
+  }
+  .life-entry-actions {
+    justify-content: flex-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .life-panel {
+    animation: none;
+  }
+  .life-link-card,
+  .life-tabs a {
+    transition: none;
+  }
+}

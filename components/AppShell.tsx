@@ -7,6 +7,8 @@ import {
   Bell,
   BookOpen,
   CalendarDays,
+  Dumbbell,
+  NotebookPen,
   ChartNoAxesColumnIncreasing,
   ChevronRight,
   CircleUserRound,
@@ -33,6 +35,11 @@ import { V3Dialog } from "./V3Dialog";
 import { Guide } from "./Guide";
 import { Inbox } from "./AcademicV3";
 import { isTyping } from "@/lib/shortcuts";
+import {
+  universeDescriptions,
+  universeHref,
+  universeSections,
+} from "@/lib/universes";
 
 type Universe = "academic" | "islam" | "finance" | "health";
 
@@ -76,7 +83,8 @@ const academicNav = [
 
 function universeFromPath(path: string): Universe {
   if (path.startsWith("/islam")) return "islam";
-  if (path.startsWith("/finance")) return "finance";
+  if (path.startsWith("/finance") || path.startsWith("/trading"))
+    return "finance";
   if (path.startsWith("/health")) return "health";
   return "academic";
 }
@@ -84,6 +92,41 @@ function universeFromPath(path: string): Universe {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
+  const universe = universeFromPath(path);
+  const universeMeta = universes.find((x) => x.id === universe)!;
+  const currentNav =
+    universe === "academic"
+      ? academicNav
+      : universeSections[universe].map((s) => ({
+          href: universeHref(universe, s.slug),
+          label: s.label,
+          icon:
+            s.slug === ""
+              ? House
+              : s.slug === "goals"
+                ? Target
+                : s.slug === "resources"
+                  ? FolderOpen
+                  : s.slug === "planning"
+                    ? CalendarDays
+                    : s.slug === "prayers"
+                      ? Landmark
+                      : s.slug === "daily"
+                        ? HeartPulse
+                        : s.slug === "activity"
+                          ? Dumbbell
+                          : s.slug === "habits"
+                            ? ListChecks
+                            : s.slug === "learning"
+                              ? GraduationCap
+                              : s.slug === "analyses"
+                                ? ChartNoAxesColumnIncreasing
+                                : s.slug === "trading"
+                                  ? ChartNoAxesColumnIncreasing
+                                  : s.slug === "journal"
+                                    ? NotebookPen
+                                    : BookOpen,
+        }));
   const { user, configured, loading } = useAuth();
   const {
     state,
@@ -99,9 +142,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [guide, setGuide] = useState(false);
   const [inbox, setInbox] = useState(false);
   useEffect(() => {
-    if (!projectLoading && !loading && !state.preferences.tutorialCompleted)
+    if (
+      universe === "academic" &&
+      !projectLoading &&
+      !loading &&
+      !state.preferences.tutorialCompleted
+    )
       setGuide(true);
-  }, [projectLoading, loading, state.preferences.tutorialCompleted]);
+  }, [projectLoading, loading, state.preferences.tutorialCompleted, universe]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing || e.repeat || isTyping(e.target))
@@ -119,6 +167,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (universe !== "academic") {
+        if (e.key === "?") {
+          e.preventDefault();
+          setGuide(true);
+          return;
+        }
+        const index = Number(e.key) - 1;
+        if (
+          index >= 0 &&
+          index < Math.min(currentNav.length, 5) &&
+          /^\d$/.test(e.key)
+        ) {
+          e.preventDefault();
+          router.push(currentNav[index].href);
+        }
+        return;
+      }
       const routes: Record<string, string> = {
         "1": "dashboard",
         "2": "subjects",
@@ -149,7 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [router]);
+  }, [router, universe]);
   useEffect(() => {
     const add = (e: Event) => {
       setQuickMode(
@@ -166,8 +231,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       router.replace("/login");
   }, [loading, configured, user, path, router]);
 
-  const universe = universeFromPath(path);
-  const universeMeta = universes.find((x) => x.id === universe)!;
   const displayName =
     user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Ozan";
 
@@ -216,35 +279,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </span>
         </div>
 
-        {universe === "academic" ? (
-          <nav className="os-nav academic-side-nav" aria-label="Académie">
-            {academicNav.map(({ href, label, icon: Icon }) => {
-              const active = path === href;
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  title={label}
-                  aria-label={label}
-                  aria-current={active ? "page" : undefined}
-                  className={"os-nav-item " + (active ? "active" : "")}
-                >
-                  <Icon size={17} />
-                  <span>{label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        ) : (
-          <div className="universe-placeholder-nav">
-            <span className="label">CATÉGORIE</span>
-            <div className="placeholder-nav-card">
-              <universeMeta.icon size={19} />
-              <strong>Vue d’ensemble</strong>
-              <small>Structure prête · développement à venir</small>
-            </div>
-          </div>
-        )}
+        <nav
+          className="os-nav academic-side-nav"
+          aria-label={universeMeta.label}
+        >
+          {currentNav.map(({ href, label, icon: Icon }) => {
+            const active = path === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                title={label}
+                aria-label={label}
+                aria-current={active ? "page" : undefined}
+                className={"os-nav-item " + (active ? "active" : "")}
+              >
+                <Icon size={17} />
+                <span>{label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
         <div className="os-sidebar-bottom">
           <div className="sidebar-quick-actions">
@@ -303,7 +358,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="topbar-actions">
-            {universe === "academic" && <button className="os-icon-button v3-command-trigger" aria-label="Ouvrir la palette" onClick={() => setCommand(true)}><Search size={18}/></button>}
+            <button
+              className={
+                "os-icon-button " +
+                (universe === "academic" ? "v3-command-trigger" : "")
+              }
+              aria-label="Ouvrir la palette"
+              onClick={() => setCommand(true)}
+            >
+              <Search size={18} />
+            </button>
             {universe === "academic" && (
               <form
                 className="os-search compact-search"
@@ -318,14 +382,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 />
               </form>
             )}
-            <button
-              className="os-icon-button os-bell"
-              aria-label="Notifications"
-              onClick={() => router.push("/academic/tasks")}
-            >
-              <Bell size={18} />
-              {dueSoon > 0 && <span>{dueSoon}</span>}
-            </button>
+            {universe === "academic" && (
+              <button
+                className="os-icon-button os-bell"
+                aria-label="Notifications"
+                onClick={() => router.push("/academic/tasks")}
+              >
+                <Bell size={18} />
+                {dueSoon > 0 && <span>{dueSoon}</span>}
+              </button>
+            )}
             <Link href="/settings" className="os-avatar" aria-label="Profil">
               <CircleUserRound size={21} />
             </Link>
@@ -333,7 +399,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="os-content">
-          {projectError && (
+          {universe === "academic" && projectError && (
             <p role="alert">
               {projectError}{" "}
               <button onClick={() => void refresh()}>Réessayer</button>
@@ -373,7 +439,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <Inbox />
       </V3Dialog>
-      <Guide open={guide} onClose={() => setGuide(false)} />
+      {universe === "academic" ? (
+        <Guide open={guide} onClose={() => setGuide(false)} />
+      ) : (
+        <V3Dialog
+          open={guide}
+          onClose={() => setGuide(false)}
+          title={"Guide · " + universeMeta.label}
+        >
+          <p>{universeDescriptions[universe].intro}</p>
+          <p>
+            {universe === "islam"
+              ? "Coche tes prières pour le jour choisi, enregistre tes sessions de Coran et ajoute les passages à réviser. Les quatre réponses espacent les prochaines révisions."
+              : universe === "health"
+                ? "Renseigne uniquement les valeurs que tu connais dans ton bilan. Crée tes habitudes, coche-les chaque jour et enregistre tes séances pour retrouver ton historique."
+                : "Le journal de trading conserve tes positions existantes. Les analyses portent sur les trades clôturés. Utilise Formation et Planification pour suivre tes cours et tes séances."}
+          </p>
+          <p>
+            Ajoute tes objectifs et tes ressources dans leurs pages. Retirer
+            déplace un élément dans la corbeille ; tu peux le restaurer. Le
+            journal de trading possède son propre bouton de suppression.
+          </p>
+          <p>
+            Ctrl/Cmd + K : palette · 1 à 5 : premières sections · ? : guide ·
+            Esc : fermer. Les raccourcis restent inactifs pendant la saisie.
+          </p>
+        </V3Dialog>
+      )}
       <V3Dialog
         open={command}
         onClose={() => setCommand(false)}
@@ -388,9 +480,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
         <div className="v3-command">
           {[
-            ...academicNav,
-            { href: "/academic/revisions", label: "Lancer Focus" },
-            { href: "/academic/grades", label: "Simulateur de notes" },
+            ...currentNav,
+            ...universes.map((u) => ({
+              href: u.href,
+              label: "Univers " + u.label,
+            })),
+            ...(universe === "academic"
+              ? [
+                  { href: "/academic/revisions", label: "Lancer Focus" },
+                  { href: "/academic/grades", label: "Simulateur de notes" },
+                ]
+              : []),
           ]
             .filter((a) => a.label.toLowerCase().includes(query.toLowerCase()))
             .map((a) => (
@@ -405,32 +505,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {a.label}
               </button>
             ))}
-          <button
-            onClick={() => {
-              setCommand(false);
-              setQuickMode("task");
-              setQuick(true);
-            }}
-          >
-            Nouvelle tâche
-          </button>
-          <button
-            onClick={() => {
-              setCommand(false);
-              setQuickMode("grade");
-              setQuick(true);
-            }}
-          >
-            Nouvelle note
-          </button>
-          <button
-            onClick={() => {
-              setCommand(false);
-              router.push("/academic/errors");
-            }}
-          >
-            Nouvelle erreur
-          </button>
+          {universe === "academic" && (
+            <>
+              <button
+                onClick={() => {
+                  setCommand(false);
+                  setQuickMode("task");
+                  setQuick(true);
+                }}
+              >
+                Nouvelle tâche
+              </button>
+              <button
+                onClick={() => {
+                  setCommand(false);
+                  setQuickMode("grade");
+                  setQuick(true);
+                }}
+              >
+                Nouvelle note
+              </button>
+              <button
+                onClick={() => {
+                  setCommand(false);
+                  router.push("/academic/errors");
+                }}
+              >
+                Nouvelle erreur
+              </button>
+            </>
+          )}
           <button
             onClick={() => {
               setCommand(false);
