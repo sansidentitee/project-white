@@ -28,6 +28,7 @@ type TradingContextValue = {
   demoMode: boolean;
   addTrade: (trade:NewTrade)=>Promise<void>;
   closeTrade: (id:string,exit:number)=>Promise<void>;
+  updateTrade: (id:string,patch:{note:string;setup:string})=>Promise<void>;
   removeTrade: (id:string)=>Promise<void>;
   refresh: ()=>Promise<void>;
 };
@@ -111,7 +112,17 @@ export function TradingProvider({children}:{children:React.ReactNode}){
     setTrades(prev=>prev.filter(t=>t.id!==id));
   }
 
-  const value=useMemo(()=>({trades,loading,demoMode,addTrade,closeTrade,removeTrade,refresh}),[trades,loading,demoMode,refresh]);
+  async function updateTrade(id:string,patch:{note:string;setup:string}){
+    if(demoMode || !supabase || !user){
+      setTrades(prev=>{const next=prev.map(t=>t.id===id?{...t,...patch}:t);saveLocal(next);return next;});
+      return;
+    }
+    const {error}=await supabase.from('trades').update(patch).eq('id',id).eq('user_id',user.id).select('id').single();
+    if(error) throw error;
+    setTrades(prev=>prev.map(t=>t.id===id?{...t,...patch}:t));
+  }
+
+  const value=useMemo(()=>({trades,loading,demoMode,addTrade,closeTrade,updateTrade,removeTrade,refresh}),[trades,loading,demoMode,refresh]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

@@ -1,4 +1,5 @@
 import './globals.css';
+import './neon.css';
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ProjectProvider } from '@/components/ProjectProvider';

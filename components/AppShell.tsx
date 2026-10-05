@@ -12,16 +12,17 @@ import { useTheme } from './ThemeProvider';
 import { useWorld } from './WorldProvider';
 import { CommandBar } from './CommandBar';
 import { QuickAddModal } from './QuickAddModal';
+import { useProject } from './ProjectProvider';
 
 const academicNav=[
   {href:'/dashboard',label:'Dashboard',icon:LayoutDashboard},
   {href:'/subjects',label:'Matières',icon:BookOpen},
   {href:'/today',label:'Devoirs',icon:FileText},
   {href:'/work',label:'Révisions',icon:NotebookTabs},
-  {href:'/subjects',label:'Notes',icon:TrendingUp},
+  {href:'/notes',label:'Notes',icon:TrendingUp},
   {href:'/planning',label:'Planning',icon:CalendarDays},
-  {href:'/subjects',label:'Ressources',icon:BookOpen},
-  {href:'/dashboard',label:'Objectifs',icon:Target},
+  {href:'/resources',label:'Ressources',icon:BookOpen},
+  {href:'/dashboard#objectifs',label:'Objectifs',icon:Target},
   {href:'/community',label:'Communauté',icon:Users},
 ];
 
@@ -32,7 +33,7 @@ const financeNav=[
   {href:'/finance/journal',label:'Journal',icon:NotebookTabs},
   {href:'/finance/planning',label:'Planification',icon:CalendarDays},
   {href:'/finance/resources',label:'Ressources',icon:BookOpen},
-  {href:'/finance/goals',label:'Objectifs',icon:Target},
+  {href:'/dashboard#objectifs',label:'Objectifs',icon:Target},
 ];
 
 export function AppShell({children}:{children:React.ReactNode}){
@@ -43,6 +44,10 @@ export function AppShell({children}:{children:React.ReactNode}){
   const {world,setWorld}=useWorld();
   const [command,setCommand]=useState(false);
   const [quick,setQuick]=useState(false);
+  const [notifications,setNotifications]=useState(false);
+  const {state}=useProject();
+  const due=state.tasks.filter(t=>t.status!=='done' && t.dueAt && new Date(t.dueAt).getTime()<Date.now()+86400000);
+  const displayName=user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Alexandre';
   const nav=world==='academic'?academicNav:financeNav;
 
   useEffect(()=>{
@@ -52,7 +57,7 @@ export function AppShell({children}:{children:React.ReactNode}){
   useEffect(()=>{
     const h=(e:KeyboardEvent)=>{
       if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setCommand(true);}
-      if(e.key==='Escape'){setCommand(false);setQuick(false);}
+      if(e.key==='Escape'){setCommand(false);setQuick(false);setNotifications(false);}
     };
     window.addEventListener('keydown',h);
     return()=>window.removeEventListener('keydown',h);
@@ -66,28 +71,29 @@ export function AppShell({children}:{children:React.ReactNode}){
       <nav className="pw-nav">
         {nav.map(({href,label,icon:Icon},index)=>{
           const active=(path===href||path.startsWith(href+'/')) && (index===0 || !nav.slice(0,index).some(x=>x.href===href));
-          return <Link key={`${world}-${label}`} href={href} className={`nav-item ${active?'active':''}`}>
+          return <Link key={`${world}-${label}`} href={href} aria-label={label} title={label} aria-current={active?'page':undefined} className={`nav-item ${active?'active':''}`}>
             <Icon size={18}/><span>{label}</span>
           </Link>
         })}
       </nav>
       <div className="sidebar-bottom pw-side-bottom">
         <div className="motivation-card"><div className="mountain-mark"/><span>Discipline<br/>aujourd’hui,<br/>liberté demain.</span></div>
-        <Link className="profile-card" href="/settings"><span className="profile-orb"/><span><strong>Alexandre</strong><small>Compte Pro</small></span><span>›</span></Link>
+        <Link className="profile-card" href="/settings"><span className="profile-orb"/><span><strong>{displayName}</strong><small>Mon espace</small></span><span>›</span></Link>
       </div>
     </aside>
 
     <div className="main-wrap pw-main-frame">
       <header className="topbar pw-topbar">
-        <button className="search-pill pw-search" onClick={()=>setCommand(true)}><Search size={17}/><span>{world==='academic'?'Rechercher une matière, un devoir, une ressource...':'Rechercher un actif, une analyse, une ressource...'}</span></button>
-        <div className="world-switch" role="tablist" aria-label="Changer de monde">
-          <button className={world==='academic'?'selected':''} onClick={()=>{setWorld('academic');router.push('/dashboard')}}><BookOpen size={16}/>Monde académique</button>
-          <button className={world==='finance'?'selected':''} onClick={()=>{setWorld('finance');router.push('/dashboard')}}><TrendingUp size={16}/>Monde financier</button>
+        <button className="search-pill pw-search" aria-label="Rechercher" onClick={()=>setCommand(true)}><Search size={17}/><span>{world==='academic'?'Rechercher une matière, un devoir, une ressource...':'Rechercher un actif, une analyse, une ressource...'}</span></button>
+        <div className="world-switch" role="group" aria-label="Changer de monde">
+          <button aria-pressed={world==='academic'} className={world==='academic'?'selected':''} onClick={()=>{setWorld('academic');router.push('/dashboard')}}><BookOpen size={19}/>Monde académique</button>
+          <button aria-pressed={world==='finance'} className={world==='finance'?'selected':''} onClick={()=>{setWorld('finance');router.push('/dashboard')}}><TrendingUp size={19}/>Monde financier</button>
         </div>
-        <button className="notification-button" aria-label="Notifications"><Bell size={17}/><i/></button>
+        <button className="notification-button" aria-label="Notifications" aria-expanded={notifications} onClick={()=>setNotifications(v=>!v)}><Bell size={21}/>{due.length>0&&<i/>}</button>
         <button className="icon-button theme-toggle" aria-label="Changer de thème" onClick={toggleTheme}>{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button>
-        <Link href="/settings" className="avatar pw-avatar"><span className="avatar-orb"/></Link>
+        <Link href="/settings" aria-label="Mon profil" className="avatar pw-avatar"><span className="avatar-orb"/></Link>
       </header>
+      {notifications&&<section className="pw-notifications" aria-label="Échéances proches"><h2>Échéances proches</h2>{due.length?due.slice(0,5).map(t=><Link onClick={()=>setNotifications(false)} href="/today" key={t.id}>{t.title}</Link>):<p>Aucune échéance dans les prochaines 24 heures.</p>}</section>}
       <main>{children}</main>
       <button className="floating-add" aria-label="Ajouter" onClick={()=>setQuick(true)}><Plus size={24}/></button>
     </div>
