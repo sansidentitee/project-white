@@ -1,5 +1,5 @@
 import './globals.css';
-import './neon.css';
+import './white-os.css';
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ProjectProvider } from '@/components/ProjectProvider';
@@ -8,8 +8,8 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { WorldProvider } from '@/components/WorldProvider';
 
 export const metadata: Metadata = {
-  title: 'Project White',
-  description: 'Dashboard personnel académique et financier.'
+  title: 'Project White — Personal OS',
+  description: 'Un OS personnel minimaliste pour la scolarité, le quotidien, le deen, la finance et la vitalité.'
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
