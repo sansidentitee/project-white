@@ -1,35 +1,45 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Bell, CalendarDays, CandlestickChart, ChartNoAxesColumnIncreasing, ChevronRight,
-  CircleUserRound, FolderOpen, Grid2X2, GraduationCap, HeartPulse, House, Landmark,
-  NotebookPen, Plus, Search, Sparkles, SquareCheckBig, Target
+  Activity, Bell, BookOpen, CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight,
+  CircleUserRound, Clock3, FolderOpen, GraduationCap, HeartPulse, House, Landmark,
+  ListChecks, NotebookPen, Plus, Search, Sparkles, Target, TriangleAlert
 } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { useProject } from './ProjectProvider';
 import { QuickAddModal } from './QuickAddModal';
 
-const mainNav = [
-  { href:'/dashboard', label:'Accueil', icon:House },
-  { href:'/calendar', label:'Calendrier', icon:CalendarDays },
-  { href:'/tasks', label:'Tâches', icon:SquareCheckBig },
-  { href:'/notes', label:'Notes', icon:NotebookPen },
-  { href:'/goals', label:'Objectifs', icon:Target },
-  { href:'/tracking', label:'Suivi', icon:ChartNoAxesColumnIncreasing },
-  { href:'/resources', label:'Ressources', icon:FolderOpen },
-  { href:'/search', label:'Recherche', icon:Search }
+type Universe = 'academic' | 'islam' | 'finance' | 'health';
+
+const universes = [
+  {id:'academic' as const,label:'Académie',href:'/academic/dashboard',icon:GraduationCap},
+  {id:'islam' as const,label:'Islam',href:'/islam',icon:Landmark},
+  {id:'finance' as const,label:'Finance',href:'/finance',icon:ChartNoAxesColumnIncreasing},
+  {id:'health' as const,label:'Santé',href:'/health',icon:HeartPulse}
 ];
 
-const spaces = [
-  { href:'/academic', label:'Académique', icon:GraduationCap },
-  { href:'/deen', label:'Deen', icon:Landmark },
-  { href:'/finance', label:'Finance', icon:CandlestickChart },
-  { href:'/vitality', label:'Vitalité', icon:HeartPulse },
-  { href:'/life', label:'Life', icon:Grid2X2 }
+const academicNav = [
+  {href:'/academic/dashboard',label:'Vue d’ensemble',icon:House},
+  {href:'/academic/grades',label:'Suivi des notes',icon:ChartNoAxesColumnIncreasing},
+  {href:'/academic/tasks',label:'Tâches · Eisenhower',icon:ListChecks},
+  {href:'/academic/calendar',label:'Calendrier · Agenda',icon:CalendarDays},
+  {href:'/academic/subjects',label:'Matières',icon:BookOpen},
+  {href:'/academic/errors',label:'Banque d’erreurs',icon:TriangleAlert},
+  {href:'/academic/revisions',label:'Révisions',icon:Clock3},
+  {href:'/academic/resources',label:'Ressources',icon:FolderOpen},
+  {href:'/academic/stats',label:'Progression',icon:Activity},
+  {href:'/academic/goals',label:'Objectifs',icon:Target}
 ];
+
+function universeFromPath(path:string):Universe {
+  if(path.startsWith('/islam')) return 'islam';
+  if(path.startsWith('/finance')) return 'finance';
+  if(path.startsWith('/health')) return 'health';
+  return 'academic';
+}
 
 export function AppShell({children}:{children:React.ReactNode}) {
   const path = usePathname();
@@ -43,48 +53,60 @@ export function AppShell({children}:{children:React.ReactNode}) {
     if(!loading && configured && !user && path !== '/login') router.replace('/login');
   },[loading,configured,user,path,router]);
 
-  if(loading || (configured && !user)) return <div className="os-loader">Project White</div>;
-
-  const now = Date.now();
-  const dueSoon = state.tasks.filter(t=>{
-    if(t.status === 'done' || !t.dueAt) return false;
-    const d = new Date(t.dueAt).getTime();
-    return d >= now - 86400000 && d <= now + 86400000;
-  }).length;
-
+  const universe = universeFromPath(path);
+  const universeMeta = universes.find(x=>x.id===universe)!;
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Ozan';
+
+  const dueSoon = useMemo(()=>{
+    const now=Date.now();
+    return state.tasks.filter(t=>{
+      if(t.status==='done'||!t.dueAt) return false;
+      const d=new Date(t.dueAt).getTime();
+      return d>=now-86400000 && d<=now+86400000;
+    }).length;
+  },[state.tasks]);
+
+  if(loading || (configured && !user)) return <div className="os-loader">Project White</div>;
 
   function submitSearch(e:FormEvent) {
     e.preventDefault();
-    router.push(query.trim() ? '/search?q=' + encodeURIComponent(query.trim()) : '/search');
+    if(universe !== 'academic') return;
+    router.push(query.trim()?'/search?q='+encodeURIComponent(query.trim()):'/academic/dashboard');
   }
 
   return (
-    <div className="os-shell">
-      <aside className="os-sidebar">
-        <Link href="/dashboard" className="os-brand">
+    <div className="os-shell universe-shell">
+      <aside className="os-sidebar universe-sidebar">
+        <Link href="/academic/dashboard" className="os-brand">
           <span className="os-brand-icon"><Sparkles size={18}/></span>
-          <span><strong>Project White</strong><small>Personal OS</small></span>
+          <span><strong>Project White</strong><small>{universeMeta.label.toUpperCase()} · OS</small></span>
         </Link>
 
-        <nav className="os-nav" aria-label="Navigation principale">
-          {mainNav.map(({href,label,icon:Icon})=>{
-            const active = path === href || (href !== '/dashboard' && path.startsWith(href + '/'));
-            return <Link key={href} href={href} className={'os-nav-item ' + (active ? 'active' : '')}><Icon size={18}/><span>{label}</span></Link>;
-          })}
-        </nav>
+        <div className="universe-current">
+          <span className="universe-current-icon"><universeMeta.icon size={18}/></span>
+          <span><small>UNIVERS</small><strong>{universeMeta.label}</strong></span>
+        </div>
 
-        <div className="os-divider"/>
-
-        <nav className="os-nav os-space-nav" aria-label="Espaces">
-          {spaces.map(({href,label,icon:Icon})=>{
-            const active = path === href || path.startsWith(href + '/');
-            return <Link key={href} href={href} className={'os-nav-item os-space-item ' + (active ? 'active' : '')}><Icon size={18}/><span>{label}</span></Link>;
-          })}
-        </nav>
+        {universe==='academic' ? (
+          <nav className="os-nav academic-side-nav" aria-label="Académie">
+            {academicNav.map(({href,label,icon:Icon})=>{
+              const active=path===href;
+              return <Link key={href} href={href} className={'os-nav-item '+(active?'active':'')}><Icon size={17}/><span>{label}</span></Link>;
+            })}
+          </nav>
+        ) : (
+          <div className="universe-placeholder-nav">
+            <span className="label">CATÉGORIE</span>
+            <div className="placeholder-nav-card">
+              <universeMeta.icon size={19}/>
+              <strong>Vue d’ensemble</strong>
+              <small>Structure prête · développement à venir</small>
+            </div>
+          </div>
+        )}
 
         <div className="os-sidebar-bottom">
-          <button className="os-round-button" aria-label="Ajouter rapidement" onClick={()=>setQuick(true)}><Plus size={19}/></button>
+          {universe==='academic' && <button className="os-round-button" aria-label="Ajouter rapidement" onClick={()=>setQuick(true)}><Plus size={19}/></button>}
           <Link href="/settings" className="os-profile">
             <CircleUserRound size={23}/>
             <span><strong>{displayName}</strong><small>Mon espace</small></span>
@@ -94,19 +116,32 @@ export function AppShell({children}:{children:React.ReactNode}) {
       </aside>
 
       <section className="os-main">
-        <header className="os-topbar">
-          <form className="os-search" onSubmit={submitSearch}>
-            <Search size={18}/>
-            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Rechercher..." aria-label="Rechercher"/>
-          </form>
-          <button className="os-icon-button os-bell" aria-label="Notifications" onClick={()=>router.push('/tasks')}>
-            <Bell size={19}/>{dueSoon > 0 && <span>{dueSoon}</span>}
-          </button>
-          <Link href="/settings" className="os-avatar" aria-label="Profil"><CircleUserRound size={22}/></Link>
+        <header className="os-topbar universe-topbar">
+          <div className="universe-switch" role="navigation" aria-label="Changer d’univers">
+            {universes.map(({id,label,href,icon:Icon})=>(
+              <Link key={id} href={href} className={universe===id?'active':''} aria-current={universe===id?'page':undefined}>
+                <span><Icon size={17}/></span>
+                <b>{label}</b>
+              </Link>
+            ))}
+          </div>
+
+          <div className="topbar-actions">
+            {universe==='academic' && (
+              <form className="os-search compact-search" onSubmit={submitSearch}>
+                <Search size={16}/>
+                <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Rechercher..." aria-label="Rechercher"/>
+              </form>
+            )}
+            <button className="os-icon-button os-bell" aria-label="Notifications" onClick={()=>router.push('/academic/tasks')}>
+              <Bell size={18}/>{dueSoon>0&&<span>{dueSoon}</span>}
+            </button>
+            <Link href="/settings" className="os-avatar" aria-label="Profil"><CircleUserRound size={21}/></Link>
+          </div>
         </header>
 
         <main className="os-content">{children}</main>
-        <button className="os-floating-add" aria-label="Ajouter" onClick={()=>setQuick(true)}><Plus size={22}/></button>
+        {universe==='academic' && <button className="os-floating-add" aria-label="Ajouter" onClick={()=>setQuick(true)}><Plus size={22}/></button>}
       </section>
 
       <QuickAddModal open={quick} onClose={()=>setQuick(false)}/>
