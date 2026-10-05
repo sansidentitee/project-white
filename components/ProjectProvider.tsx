@@ -4,20 +4,20 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useAuth } from './AuthProvider';
 import { supabase } from '@/lib/supabase/client';
 import { demoState } from '@/lib/demo';
-import type { AcademicError, Chapter, Grade, ProjectState, Resource, Subject, Task, WorkSession } from '@/lib/types';
+import type {
+  AcademicError, AcademicGoal, Chapter, Grade, ProjectState,
+  Resource, Subject, Task, WorkSession
+} from '@/lib/types';
 import { autoPlan } from '@/lib/scheduler';
 
-const empty: ProjectState = { subjects:[], chapters:[], tasks:[], grades:[], sessions:[], resources:[], errors:[] };
+const empty: ProjectState = {
+  subjects:[], chapters:[], tasks:[], grades:[], sessions:[],
+  resources:[], errors:[], goals:[], preferences:{averageGoal:18}
+};
 const LOCAL_KEY = 'project-white-state-v1';
-const DEFAULT_SUBJECTS = [
-  ['Mathématiques','Maths','sigma'],
-  ['Physique-Chimie','PC','flask'],
-  ['Maths expertes','Expert','sigma'],
-  ['Histoire-Géographie','H-G','book'],
-  ['Philosophie','Philo','file'],
+const REQUIRED_SUBJECTS = [
   ['Anglais','Anglais','languages'],
-  ['Espagnol','Espagnol','languages'],
-  ['Enseignement scientifique','Ens. sci.','atom']
+  ['Espagnol','Espagnol','languages']
 ] as const;
 
 type ProjectCtx = {
@@ -33,10 +33,16 @@ type ProjectCtx = {
   updateChapter: (id:string,patch:Partial<Chapter>)=>Promise<void>;
   addSession: (session:Omit<WorkSession,'id'>)=>Promise<void>;
   addResource: (resource:Omit<Resource,'id'>)=>Promise<void>;
+  updateResource: (id:string,patch:Partial<Resource>)=>Promise<void>;
+  removeResource: (id:string)=>Promise<void>;
   uploadResource: (subjectId:string,file:File)=>Promise<string>;
   addError: (error:Omit<AcademicError,'id'>)=>Promise<void>;
   updateError: (id:string, patch:Partial<AcademicError>)=>Promise<void>;
   removeError: (id:string)=>Promise<void>;
+  addGoal: (goal:Omit<AcademicGoal,'id'>)=>Promise<void>;
+  updateGoal: (id:string,patch:Partial<AcademicGoal>)=>Promise<void>;
+  removeGoal: (id:string)=>Promise<void>;
+  setAverageGoal: (value:number)=>Promise<void>;
   organizeWeek: ()=>Promise<void>;
 };
 
@@ -52,7 +58,11 @@ function normalizeLocal(s:any):ProjectState {
     grades:Array.isArray(base.grades)?base.grades:[],
     sessions:Array.isArray(base.sessions)?base.sessions:[],
     resources:Array.isArray(base.resources)?base.resources:[],
-    errors:Array.isArray(base.errors)?base.errors:[]
+    errors:Array.isArray(base.errors)?base.errors:[],
+    goals:Array.isArray(base.goals)?base.goals:[],
+    preferences:{
+      averageGoal:Number(base.preferences?.averageGoal)||18
+    }
   };
 }
 
@@ -74,6 +84,7 @@ const dbToGrade=(x:any):Grade=>({id:x.id,subjectId:x.subject_id,title:x.title,sc
 const dbToSession=(x:any):WorkSession=>({id:x.id,taskId:x.task_id,subjectId:x.subject_id,startedAt:x.started_at,endedAt:x.ended_at,durationMin:x.duration_min,outcome:x.outcome});
 const dbToResource=(x:any):Resource=>({id:x.id,subjectId:x.subject_id,chapterId:x.chapter_id,title:x.title,url:x.url,kind:x.kind,createdAt:x.created_at});
 const dbToError=(x:any):AcademicError=>({id:x.id,subjectId:x.subject_id,title:x.title,details:x.details,correction:x.correction,status:x.status,nextReviewAt:x.next_review_at,createdAt:x.created_at});
+const dbToGoal=(x:any):AcademicGoal=>({id:x.id,title:x.title,details:x.details,targetValue:x.target_value==null?null:Number(x.target_value),currentValue:Number(x.current_value||0),unit:x.unit,dueAt:x.due_at,status:x.status,createdAt:x.created_at});
 
 export function ProjectProvider({children}:{children:React.ReactNode}) {
   const {user,configured,loading:authLoading}=useAuth();
@@ -87,23 +98,32 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
     if (!configured || !supabase) { setState(localLoad()); setLoading(false); return; }
     if (!user) { setState(empty); setLoading(false); return; }
 
-    const [s,c,t,g,w,r,e] = await Promise.all([
+    const [s,c,t,g,w,r,e,go,p] = await Promise.all([
       supabase.from('subjects').select('*').order('created_at'),
       supabase.from('chapters').select('*').order('created_at'),
       supabase.from('tasks').select('*').order('created_at'),
       supabase.from('grades').select('*').order('taken_at',{ascending:false}),
-      supabase.from('work_sessions').select('*').order('started_at',{ascending:false}).limit(100),
+      supabase.from('work_sessions').select('*').order('started_at',{ascending:false}).limit(150),
       supabase.from('resources').select('*').order('created_at',{ascending:false}),
-      supabase.from('academic_errors').select('*').order('created_at',{ascending:false})
+      supabase.from('academic_errors').select('*').order('created_at',{ascending:false}),
+      supabase.from('academic_goals').select('*').order('created_at',{ascending:false}),
+      supabase.from('academic_preferences').select('*').maybeSingle()
     ]);
 
     if (s.error) { console.error(s.error); setLoading(false); return; }
 
     let subjects=(s.data??[]).map(dbToSubject);
-    if (!subjects.length) {
-      const rows=DEFAULT_SUBJECTS.map(([name,short_name,icon])=>({user_id:user.id,name,short_name,icon}));
+    const missing=REQUIRED_SUBJECTS.filter(([name])=>!subjects.some(x=>x.name.toLowerCase()===name.toLowerCase()));
+    if(missing.length){
+      const rows=missing.map(([name,short_name,icon])=>({user_id:user.id,name,short_name,icon}));
       const inserted=await supabase.from('subjects').insert(rows).select('*');
-      subjects=(inserted.data??[]).map(dbToSubject);
+      if(inserted.data) subjects=[...subjects,...inserted.data.map(dbToSubject)];
+    }
+
+    let averageGoal=Number((p.data as any)?.average_goal)||18;
+    if(!p.data){
+      const pref=await supabase.from('academic_preferences').upsert({user_id:user.id,average_goal:18,updated_at:new Date().toISOString()},{onConflict:'user_id'}).select('*').single();
+      averageGoal=Number(pref.data?.average_goal)||18;
     }
 
     setState({
@@ -113,7 +133,9 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
       grades:(g.data??[]).map(dbToGrade),
       sessions:(w.data??[]).map(dbToSession),
       resources:(r.data??[]).map(dbToResource),
-      errors:(e.data??[]).map(dbToError)
+      errors:(e.data??[]).map(dbToError),
+      goals:(go.data??[]).map(dbToGoal),
+      preferences:{averageGoal}
     });
     setLoading(false);
   },[user,configured,authLoading]);
@@ -134,19 +156,7 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
       updateLocal(s=>({...s,tasks:[...s.tasks,task]}));
       return task;
     }
-    const row={
-      user_id:user.id,
-      subject_id:input.subjectId,
-      title:input.title,
-      details:input.details,
-      kind:input.kind,
-      due_at:input.dueAt,
-      planned_start:input.plannedStart,
-      duration_min:input.durationMin,
-      status:input.status,
-      quadrant:input.quadrant,
-      priority:input.priority
-    };
+    const row={user_id:user.id,subject_id:input.subjectId,title:input.title,details:input.details,kind:input.kind,due_at:input.dueAt,planned_start:input.plannedStart,duration_min:input.durationMin,status:input.status,quadrant:input.quadrant,priority:input.priority};
     const {data,error}=await supabase.from('tasks').insert(row).select('*').single();
     if(error) throw error;
     const task=dbToTask(data);
@@ -184,13 +194,8 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
       return;
     }
     const {data,error}=await supabase.from('grades').insert({
-      user_id:user.id,
-      subject_id:input.subjectId,
-      title:input.title,
-      score:input.score,
-      out_of:input.outOf,
-      coefficient:input.coefficient,
-      taken_at:input.takenAt
+      user_id:user.id,subject_id:input.subjectId,title:input.title,
+      score:input.score,out_of:input.outOf,coefficient:input.coefficient,taken_at:input.takenAt
     }).select('*').single();
     if(error) throw error;
     setState(s=>({...s,grades:[dbToGrade(data),...s.grades]}));
@@ -202,12 +207,7 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
       updateLocal(s=>({...s,chapters:[...s.chapters,x]}));
       return;
     }
-    const {data,error}=await supabase.from('chapters').insert({
-      user_id:user.id,
-      subject_id:input.subjectId,
-      title:input.title,
-      status:input.status
-    }).select('*').single();
+    const {data,error}=await supabase.from('chapters').insert({user_id:user.id,subject_id:input.subjectId,title:input.title,status:input.status}).select('*').single();
     if(error) throw error;
     setState(s=>({...s,chapters:[...s.chapters,dbToChapter(data)]}));
   }
@@ -232,13 +232,8 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
       return;
     }
     const {data,error}=await supabase.from('work_sessions').insert({
-      user_id:user.id,
-      task_id:input.taskId,
-      subject_id:input.subjectId,
-      started_at:input.startedAt,
-      ended_at:input.endedAt,
-      duration_min:input.durationMin,
-      outcome:input.outcome
+      user_id:user.id,task_id:input.taskId,subject_id:input.subjectId,
+      started_at:input.startedAt,ended_at:input.endedAt,duration_min:input.durationMin,outcome:input.outcome
     }).select('*').single();
     if(error) throw error;
     setState(s=>({...s,sessions:[dbToSession(data),...s.sessions]}));
@@ -251,15 +246,43 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
       return;
     }
     const {data,error}=await supabase.from('resources').insert({
-      user_id:user.id,
-      subject_id:input.subjectId,
-      chapter_id:input.chapterId,
-      title:input.title,
-      url:input.url,
-      kind:input.kind
+      user_id:user.id,subject_id:input.subjectId,chapter_id:input.chapterId,
+      title:input.title,url:input.url,kind:input.kind
     }).select('*').single();
     if(error) throw error;
     setState(s=>({...s,resources:[dbToResource(data),...s.resources]}));
+  }
+
+  async function updateResource(id:string,patch:Partial<Resource>) {
+    if (demoMode || !supabase || !user) {
+      updateLocal(s=>({...s,resources:s.resources.map(r=>r.id===id?{...r,...patch}:r)}));
+      return;
+    }
+    const db:any={};
+    const map:any={subjectId:'subject_id',chapterId:'chapter_id'};
+    Object.entries(patch).forEach(([k,v])=>db[map[k]??k.replace(/[A-Z]/g,m=>'_'+m.toLowerCase())]=v);
+    const {error}=await supabase.from('resources').update(db).eq('id',id);
+    if(error) throw error;
+    setState(s=>({...s,resources:s.resources.map(r=>r.id===id?{...r,...patch}:r)}));
+  }
+
+  async function removeResource(id:string) {
+    const resource=state.resources.find(r=>r.id===id);
+    if (demoMode || !supabase || !user) {
+      updateLocal(s=>({...s,resources:s.resources.filter(r=>r.id!==id)}));
+      return;
+    }
+    if(resource?.kind==='file'){
+      const marker='/storage/v1/object/public/resources/';
+      const idx=resource.url.indexOf(marker);
+      if(idx>=0){
+        const path=decodeURIComponent(resource.url.slice(idx+marker.length).split('?')[0]);
+        if(path) await supabase.storage.from('resources').remove([path]);
+      }
+    }
+    const {error}=await supabase.from('resources').delete().eq('id',id);
+    if(error) throw error;
+    setState(s=>({...s,resources:s.resources.filter(r=>r.id!==id)}));
   }
 
   async function uploadResource(subjectId:string,file:File) {
@@ -283,13 +306,8 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
       return;
     }
     const {data,error}=await supabase.from('academic_errors').insert({
-      user_id:user.id,
-      subject_id:input.subjectId,
-      title:input.title,
-      details:input.details,
-      correction:input.correction,
-      status:input.status,
-      next_review_at:input.nextReviewAt
+      user_id:user.id,subject_id:input.subjectId,title:input.title,details:input.details,
+      correction:input.correction,status:input.status,next_review_at:input.nextReviewAt
     }).select('*').single();
     if(error) throw error;
     setState(s=>({...s,errors:[dbToError(data),...s.errors]}));
@@ -318,6 +336,56 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
     setState(s=>({...s,errors:s.errors.filter(x=>x.id!==id)}));
   }
 
+  async function addGoal(input:Omit<AcademicGoal,'id'>) {
+    if (demoMode || !supabase || !user) {
+      const x={...input,id:uuid()};
+      updateLocal(s=>({...s,goals:[x,...s.goals]}));
+      return;
+    }
+    const {data,error}=await supabase.from('academic_goals').insert({
+      user_id:user.id,title:input.title,details:input.details,target_value:input.targetValue,
+      current_value:input.currentValue,unit:input.unit,due_at:input.dueAt,status:input.status
+    }).select('*').single();
+    if(error) throw error;
+    setState(s=>({...s,goals:[dbToGoal(data),...s.goals]}));
+  }
+
+  async function updateGoal(id:string,patch:Partial<AcademicGoal>) {
+    if (demoMode || !supabase || !user) {
+      updateLocal(s=>({...s,goals:s.goals.map(g=>g.id===id?{...g,...patch}:g)}));
+      return;
+    }
+    const db:any={};
+    const map:any={targetValue:'target_value',currentValue:'current_value',dueAt:'due_at'};
+    Object.entries(patch).forEach(([k,v])=>db[map[k]??k.replace(/[A-Z]/g,m=>'_'+m.toLowerCase())]=v);
+    const {error}=await supabase.from('academic_goals').update(db).eq('id',id);
+    if(error) throw error;
+    setState(s=>({...s,goals:s.goals.map(g=>g.id===id?{...g,...patch}:g)}));
+  }
+
+  async function removeGoal(id:string) {
+    if (demoMode || !supabase || !user) {
+      updateLocal(s=>({...s,goals:s.goals.filter(g=>g.id!==id)}));
+      return;
+    }
+    const {error}=await supabase.from('academic_goals').delete().eq('id',id);
+    if(error) throw error;
+    setState(s=>({...s,goals:s.goals.filter(g=>g.id!==id)}));
+  }
+
+  async function setAverageGoal(value:number) {
+    const clean=Math.max(0,Math.min(20,value||18));
+    if (demoMode || !supabase || !user) {
+      updateLocal(s=>({...s,preferences:{...s.preferences,averageGoal:clean}}));
+      return;
+    }
+    const {error}=await supabase.from('academic_preferences').upsert({
+      user_id:user.id,average_goal:clean,updated_at:new Date().toISOString()
+    },{onConflict:'user_id'});
+    if(error) throw error;
+    setState(s=>({...s,preferences:{...s.preferences,averageGoal:clean}}));
+  }
+
   async function organizeWeek() {
     const planned=autoPlan(state.tasks);
     const changes=planned.filter(t=>t.plannedStart!==state.tasks.find(x=>x.id===t.id)?.plannedStart);
@@ -328,8 +396,9 @@ export function ProjectProvider({children}:{children:React.ReactNode}) {
     state,loading,demoMode,refresh,
     addTask,updateTask,removeTask,
     addGrade,addChapter,updateChapter,
-    addSession,addResource,uploadResource,
+    addSession,addResource,updateResource,removeResource,uploadResource,
     addError,updateError,removeError,
+    addGoal,updateGoal,removeGoal,setAverageGoal,
     organizeWeek
   }),[state,loading,demoMode,refresh]);
 
