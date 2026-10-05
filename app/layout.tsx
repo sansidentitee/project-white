@@ -29,3 +29,5 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     </html>
   );
 }
+
+import './academic-v3.css';

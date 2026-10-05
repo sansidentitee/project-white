@@ -1,6 +1,6 @@
-export type TaskStatus = 'todo' | 'partial' | 'blocked' | 'done';
-export type TaskKind = 'homework' | 'exam' | 'event' | 'study';
-export type Quadrant = 'do' | 'schedule' | 'delegate' | 'eliminate';
+export type TaskStatus = "todo" | "partial" | "blocked" | "done";
+export type TaskKind = "homework" | "exam" | "event" | "study";
+export type Quadrant = "do" | "schedule" | "delegate" | "eliminate";
 
 export type Subject = {
   id: string;
@@ -14,11 +14,12 @@ export type Chapter = {
   id: string;
   subjectId: string;
   title: string;
-  status: 'discover' | 'learning' | 'reinforce' | 'solid' | 'mastered';
+  status: "discover" | "learning" | "reinforce" | "solid" | "mastered";
   createdAt?: string;
 };
 
 export type Task = {
+  completedAt?: string | null;
   id: string;
   subjectId?: string | null;
   title: string;
@@ -50,7 +51,7 @@ export type WorkSession = {
   startedAt: string;
   endedAt: string;
   durationMin: number;
-  outcome: 'done' | 'partial' | 'resume' | 'blocked';
+  outcome: "done" | "partial" | "resume" | "blocked";
 };
 
 export type Resource = {
@@ -59,22 +60,28 @@ export type Resource = {
   chapterId?: string | null;
   title: string;
   url: string;
-  kind: 'link' | 'file';
+  kind: "link" | "file";
   createdAt?: string;
 };
 
 export type AcademicError = {
+  chapterId?: string | null;
+  intervalDays?: number;
+  repetitions?: number;
+  lapses?: number;
+  lastReviewedAt?: string | null;
   id: string;
   subjectId?: string | null;
   title: string;
   details?: string | null;
   correction?: string | null;
-  status: 'open' | 'review' | 'mastered';
+  status: "open" | "review" | "mastered";
   nextReviewAt?: string | null;
   createdAt?: string;
 };
 
 export type AcademicGoal = {
+  subjectId?: string | null;
   id: string;
   title: string;
   details?: string | null;
@@ -82,11 +89,13 @@ export type AcademicGoal = {
   currentValue: number;
   unit?: string | null;
   dueAt?: string | null;
-  status: 'active' | 'done' | 'paused';
+  status: "active" | "done" | "paused";
   createdAt?: string;
 };
 
 export type AcademicPreferences = {
+  dashboardWidgets?: string[];
+  tutorialCompleted?: boolean;
   averageGoal: number;
 };
 
