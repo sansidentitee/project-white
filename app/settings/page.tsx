@@ -24,10 +24,10 @@ export default function SettingsPage(){
 
       <NeuCard className="settings-card">
         <h2>Apparence</h2>
-        <p className="muted">Le blanc givré reste le thème principal. Le noir reprend les mêmes reliefs avec un contraste contenu.</p>
+        <p className="muted">Deux apparences complètes : blanc glacier et noir profond, avec les mêmes reliefs neumorphiques.</p>
         <div className="theme-choice">
           <button className={theme==='light'?'selected':''} onClick={()=>setTheme('light')}><Sun size={18}/><span>Blanc givré</span></button>
-          <button className={theme==='dark'?'selected':''} onClick={()=>setTheme('dark')}><Moon size={18}/><span>Noir graphite</span></button>
+          <button className={theme==='dark'?'selected':''} onClick={()=>setTheme('dark')}><Moon size={18}/><span>Noir profond</span></button>
         </div>
       </NeuCard>
 
