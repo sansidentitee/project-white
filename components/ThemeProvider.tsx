@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 
 export type Theme = 'light' | 'dark';
 
@@ -11,29 +11,18 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const THEME_KEY = 'project-white-theme';
 
 export function ThemeProvider({children}:{children:React.ReactNode}) {
-  const [theme,setThemeState] = useState<Theme>('dark');
-
   useEffect(()=>{
-    const saved = localStorage.getItem(THEME_KEY);
-    const initial: Theme = saved === 'light' ? 'light' : 'dark';
-    setThemeState(initial);
-    document.documentElement.dataset.theme = initial;
+    document.documentElement.dataset.theme = 'light';
+    localStorage.setItem('project-white-theme','light');
   },[]);
 
-  function setTheme(next:Theme) {
-    setThemeState(next);
-    localStorage.setItem(THEME_KEY,next);
-    document.documentElement.dataset.theme = next;
-  }
-
-  const value = useMemo(()=>({
-    theme,
-    setTheme,
-    toggleTheme:()=>setTheme(theme === 'light' ? 'dark' : 'light')
-  }),[theme]);
+  const value = useMemo<ThemeContextValue>(()=>({
+    theme:'light',
+    setTheme:()=>{},
+    toggleTheme:()=>{}
+  }),[]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
