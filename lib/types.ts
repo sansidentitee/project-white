@@ -74,6 +74,22 @@ export type AcademicError = {
   createdAt?: string;
 };
 
+export type AcademicGoal = {
+  id: string;
+  title: string;
+  details?: string | null;
+  targetValue?: number | null;
+  currentValue: number;
+  unit?: string | null;
+  dueAt?: string | null;
+  status: 'active' | 'done' | 'paused';
+  createdAt?: string;
+};
+
+export type AcademicPreferences = {
+  averageGoal: number;
+};
+
 export type ProjectState = {
   subjects: Subject[];
   chapters: Chapter[];
@@ -82,4 +98,6 @@ export type ProjectState = {
   sessions: WorkSession[];
   resources: Resource[];
   errors: AcademicError[];
+  goals: AcademicGoal[];
+  preferences: AcademicPreferences;
 };
