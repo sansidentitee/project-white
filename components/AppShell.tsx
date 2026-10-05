@@ -1,104 +1,115 @@
 'use client';
 
 import Link from 'next/link';
+import { FormEvent, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import {
-  CalendarDays, BookOpen, FileText, Search, Plus, LayoutDashboard,
-  TrendingUp, Moon, Sun, Target, NotebookTabs, BriefcaseBusiness, Bell, Users
-} from './icons';
+  Bell, CalendarDays, CandlestickChart, ChartNoAxesColumnIncreasing, ChevronRight,
+  CircleUserRound, FolderOpen, Grid2X2, GraduationCap, HeartPulse, House, Landmark,
+  NotebookPen, Plus, Search, Sparkles, SquareCheckBig, Target
+} from 'lucide-react';
 import { useAuth } from './AuthProvider';
-import { useTheme } from './ThemeProvider';
-import { useWorld } from './WorldProvider';
-import { CommandBar } from './CommandBar';
-import { QuickAddModal } from './QuickAddModal';
 import { useProject } from './ProjectProvider';
+import { QuickAddModal } from './QuickAddModal';
 
-const academicNav=[
-  {href:'/dashboard',label:'Dashboard',icon:LayoutDashboard},
-  {href:'/subjects',label:'Matières',icon:BookOpen},
-  {href:'/today',label:'Devoirs',icon:FileText},
-  {href:'/work',label:'Révisions',icon:NotebookTabs},
-  {href:'/notes',label:'Notes',icon:TrendingUp},
-  {href:'/planning',label:'Planning',icon:CalendarDays},
-  {href:'/resources',label:'Ressources',icon:BookOpen},
-  {href:'/dashboard#objectifs',label:'Objectifs',icon:Target},
-  {href:'/community',label:'Communauté',icon:Users},
+const mainNav = [
+  { href:'/dashboard', label:'Accueil', icon:House },
+  { href:'/calendar', label:'Calendrier', icon:CalendarDays },
+  { href:'/tasks', label:'Tâches', icon:SquareCheckBig },
+  { href:'/notes', label:'Notes', icon:NotebookPen },
+  { href:'/goals', label:'Objectifs', icon:Target },
+  { href:'/tracking', label:'Suivi', icon:ChartNoAxesColumnIncreasing },
+  { href:'/resources', label:'Ressources', icon:FolderOpen },
+  { href:'/search', label:'Recherche', icon:Search }
 ];
 
-const financeNav=[
-  {href:'/dashboard',label:'Dashboard',icon:LayoutDashboard},
-  {href:'/trading',label:'Trading',icon:TrendingUp},
-  {href:'/finance/analyses',label:'Analyses',icon:BriefcaseBusiness},
-  {href:'/finance/journal',label:'Journal',icon:NotebookTabs},
-  {href:'/finance/planning',label:'Planification',icon:CalendarDays},
-  {href:'/finance/resources',label:'Ressources',icon:BookOpen},
-  {href:'/dashboard#objectifs',label:'Objectifs',icon:Target},
+const spaces = [
+  { href:'/academic', label:'Académique', icon:GraduationCap },
+  { href:'/deen', label:'Deen', icon:Landmark },
+  { href:'/finance', label:'Finance', icon:CandlestickChart },
+  { href:'/vitality', label:'Vitalité', icon:HeartPulse },
+  { href:'/life', label:'Life', icon:Grid2X2 }
 ];
 
-export function AppShell({children}:{children:React.ReactNode}){
-  const path=usePathname();
-  const router=useRouter();
-  const {user,configured,loading}=useAuth();
-  const {theme,toggleTheme}=useTheme();
-  const {world,setWorld}=useWorld();
-  const [command,setCommand]=useState(false);
-  const [quick,setQuick]=useState(false);
-  const [notifications,setNotifications]=useState(false);
-  const {state}=useProject();
-  const due=state.tasks.filter(t=>t.status!=='done' && t.dueAt && new Date(t.dueAt).getTime()<Date.now()+86400000);
-  const displayName=user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Alexandre';
-  const nav=world==='academic'?academicNav:financeNav;
+export function AppShell({children}:{children:React.ReactNode}) {
+  const path = usePathname();
+  const router = useRouter();
+  const {user,configured,loading} = useAuth();
+  const {state} = useProject();
+  const [quick,setQuick] = useState(false);
+  const [query,setQuery] = useState('');
 
   useEffect(()=>{
-    if(!loading && configured && !user && path!='/login') router.replace('/login');
+    if(!loading && configured && !user && path !== '/login') router.replace('/login');
   },[loading,configured,user,path,router]);
 
-  useEffect(()=>{
-    const h=(e:KeyboardEvent)=>{
-      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setCommand(true);}
-      if(e.key==='Escape'){setCommand(false);setQuick(false);setNotifications(false);}
-    };
-    window.addEventListener('keydown',h);
-    return()=>window.removeEventListener('keydown',h);
-  },[]);
+  if(loading || (configured && !user)) return <div className="os-loader">Project White</div>;
 
-  if(loading || (configured && !user)) return <div className="page-loader">Project White</div>;
+  const now = Date.now();
+  const dueSoon = state.tasks.filter(t=>{
+    if(t.status === 'done' || !t.dueAt) return false;
+    const d = new Date(t.dueAt).getTime();
+    return d >= now - 86400000 && d <= now + 86400000;
+  }).length;
 
-  return <div className="app-shell pw-shell">
-    <aside className="sidebar pw-sidebar">
-      <Link href="/dashboard" className="brand pw-brand"><span className="brand-orb"/>project white <small>PRO</small></Link>
-      <nav className="pw-nav">
-        {nav.map(({href,label,icon:Icon},index)=>{
-          const active=(path===href||path.startsWith(href+'/')) && (index===0 || !nav.slice(0,index).some(x=>x.href===href));
-          return <Link key={`${world}-${label}`} href={href} aria-label={label} title={label} aria-current={active?'page':undefined} className={`nav-item ${active?'active':''}`}>
-            <Icon size={18}/><span>{label}</span>
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Ozan';
+
+  function submitSearch(e:FormEvent) {
+    e.preventDefault();
+    router.push(query.trim() ? '/search?q=' + encodeURIComponent(query.trim()) : '/search');
+  }
+
+  return (
+    <div className="os-shell">
+      <aside className="os-sidebar">
+        <Link href="/dashboard" className="os-brand">
+          <span className="os-brand-icon"><Sparkles size={18}/></span>
+          <span><strong>Project White</strong><small>Personal OS</small></span>
+        </Link>
+
+        <nav className="os-nav" aria-label="Navigation principale">
+          {mainNav.map(({href,label,icon:Icon})=>{
+            const active = path === href || (href !== '/dashboard' && path.startsWith(href + '/'));
+            return <Link key={href} href={href} className={'os-nav-item ' + (active ? 'active' : '')}><Icon size={18}/><span>{label}</span></Link>;
+          })}
+        </nav>
+
+        <div className="os-divider"/>
+
+        <nav className="os-nav os-space-nav" aria-label="Espaces">
+          {spaces.map(({href,label,icon:Icon})=>{
+            const active = path === href || path.startsWith(href + '/');
+            return <Link key={href} href={href} className={'os-nav-item os-space-item ' + (active ? 'active' : '')}><Icon size={18}/><span>{label}</span></Link>;
+          })}
+        </nav>
+
+        <div className="os-sidebar-bottom">
+          <button className="os-round-button" aria-label="Ajouter rapidement" onClick={()=>setQuick(true)}><Plus size={19}/></button>
+          <Link href="/settings" className="os-profile">
+            <CircleUserRound size={23}/>
+            <span><strong>{displayName}</strong><small>Mon espace</small></span>
+            <ChevronRight size={16}/>
           </Link>
-        })}
-      </nav>
-      <div className="sidebar-bottom pw-side-bottom">
-        <div className="motivation-card"><div className="mountain-mark"/><span>Discipline<br/>aujourd’hui,<br/>liberté demain.</span></div>
-        <Link className="profile-card" href="/settings"><span className="profile-orb"/><span><strong>{displayName}</strong><small>Mon espace</small></span><span>›</span></Link>
-      </div>
-    </aside>
-
-    <div className="main-wrap pw-main-frame">
-      <header className="topbar pw-topbar">
-        <button className="search-pill pw-search" aria-label="Rechercher" onClick={()=>setCommand(true)}><Search size={17}/><span>{world==='academic'?'Rechercher une matière, un devoir, une ressource...':'Rechercher un actif, une analyse, une ressource...'}</span></button>
-        <div className="world-switch" role="group" aria-label="Changer de monde">
-          <button aria-pressed={world==='academic'} className={world==='academic'?'selected':''} onClick={()=>{setWorld('academic');router.push('/dashboard')}}><BookOpen size={19}/>Monde académique</button>
-          <button aria-pressed={world==='finance'} className={world==='finance'?'selected':''} onClick={()=>{setWorld('finance');router.push('/dashboard')}}><TrendingUp size={19}/>Monde financier</button>
         </div>
-        <button className="notification-button" aria-label="Notifications" aria-expanded={notifications} onClick={()=>setNotifications(v=>!v)}><Bell size={21}/>{due.length>0&&<i/>}</button>
-        <button className="icon-button theme-toggle" aria-label="Changer de thème" onClick={toggleTheme}>{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button>
-        <Link href="/settings" aria-label="Mon profil" className="avatar pw-avatar"><span className="avatar-orb"/></Link>
-      </header>
-      {notifications&&<section className="pw-notifications" aria-label="Échéances proches"><h2>Échéances proches</h2>{due.length?due.slice(0,5).map(t=><Link onClick={()=>setNotifications(false)} href="/today" key={t.id}>{t.title}</Link>):<p>Aucune échéance dans les prochaines 24 heures.</p>}</section>}
-      <main>{children}</main>
-      <button className="floating-add" aria-label="Ajouter" onClick={()=>setQuick(true)}><Plus size={24}/></button>
-    </div>
+      </aside>
 
-    <CommandBar open={command} onClose={()=>setCommand(false)} onQuickAdd={()=>{setCommand(false);setQuick(true)}}/>
-    <QuickAddModal open={quick} onClose={()=>setQuick(false)}/>
-  </div>;
+      <section className="os-main">
+        <header className="os-topbar">
+          <form className="os-search" onSubmit={submitSearch}>
+            <Search size={18}/>
+            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Rechercher..." aria-label="Rechercher"/>
+          </form>
+          <button className="os-icon-button os-bell" aria-label="Notifications" onClick={()=>router.push('/tasks')}>
+            <Bell size={19}/>{dueSoon > 0 && <span>{dueSoon}</span>}
+          </button>
+          <Link href="/settings" className="os-avatar" aria-label="Profil"><CircleUserRound size={22}/></Link>
+        </header>
+
+        <main className="os-content">{children}</main>
+        <button className="os-floating-add" aria-label="Ajouter" onClick={()=>setQuick(true)}><Plus size={22}/></button>
+      </section>
+
+      <QuickAddModal open={quick} onClose={()=>setQuick(false)}/>
+    </div>
+  );
 }
