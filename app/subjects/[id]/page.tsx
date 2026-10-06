@@ -6,6 +6,9 @@ import { GradeSimulator, StartTask } from "@/components/AcademicV3";
 import { academicRisk } from "@/lib/academic";
 import { subjectAverage } from "@/lib/grades";
 import type { Chapter } from "@/lib/types";
+import { GradeManager } from "@/components/GradeManager";
+import { OptionalPanel } from "@/components/CalmWorkspace";
+import { useComfortFilter } from "@/components/ComfortProvider";
 const tabs = [
   "Vue générale",
   "Notes",
@@ -33,8 +36,8 @@ export default function SubjectDetail({
     addGoal,
     updateGoal,
   } = useProject();
-  const [tab, setTab] = useState<string>("Vue générale"),
-    [title, setTitle] = useState(""),
+  const [tab, setTab] = useComfortFilter(`subject:tab:${id}`, "Vue générale");
+  const [title, setTitle] = useState(""),
     [link, setLink] = useState(""),
     [error, setError] = useState(""),
     [pending, setPending] = useState(false),
@@ -80,7 +83,7 @@ export default function SubjectDetail({
           {sessions.reduce((a, s) => a + s.durationMin, 0)} min travaillées
         </p>
         <nav className="v3-row" aria-label="Sections de la matière">
-          {tabs.map((t) => (
+          {tabs.slice(0, 4).map((t) => (
             <button
               className="neo-pill"
               aria-pressed={tab === t}
@@ -93,97 +96,140 @@ export default function SubjectDetail({
               {t}
             </button>
           ))}
+          <label>
+            Autres sections
+            <select
+              aria-label="Autres sections de la matière"
+              value={tabs.slice(4).includes(tab as (typeof tabs)[4]) ? tab : ""}
+              onChange={(e) => {
+                if (e.target.value) setTab(e.target.value);
+              }}
+            >
+              <option value="">Choisir…</option>
+              {tabs.slice(4).map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </label>
         </nav>
         {error && <p role="alert">{error}</p>}
-        {(tab === "Vue générale" || tab === "Notes") && (
-          <>
-            <section className="neo-panel section-space">
-              <h2>Tendance des notes</h2>
-              {grades.length ? (
-                <>
-                  <svg
-                    viewBox="0 0 600 210"
-                    role="img"
-                    aria-label="Notes normalisées sur 20"
-                  >
-                    <line
-                      x1="20"
-                      y1="190"
-                      x2="580"
-                      y2="190"
-                      stroke="currentColor"
-                    />
-                    {grades.map((g, i) => {
-                      const x = 30 + (i / Math.max(1, grades.length - 1)) * 530,
-                        y = 190 - (g.score / g.outOf) * 8;
-                      const prev = grades[i - 1] || g,
-                        py = 190 - (prev.score / prev.outOf) * 8;
-                      return (
-                        <g key={g.id}>
-                          <line
-                            x1={x}
-                            x2={x}
-                            y1={Math.min(y, py) - 8}
-                            y2={Math.max(y, py) + 8}
-                            stroke="currentColor"
-                          />
-                          <rect
-                            x={x - 5}
-                            y={Math.min(y, py)}
-                            width="10"
-                            height={Math.max(3, Math.abs(y - py))}
-                            fill="currentColor"
-                            opacity={y <= py ? 1 : 0.4}
-                          />
-                          <title>
-                            {g.title} : {g.score}/{g.outOf} · coef{" "}
-                            {g.coefficient}
-                          </title>
-                        </g>
-                      );
-                    })}
-                  </svg>
-                  <table className="grade-table">
-                    <thead>
-                      <tr>
-                        <th>Évaluation</th>
-                        <th>Note</th>
-                        <th>Coefficient</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {grades.map((g) => (
-                        <tr key={g.id}>
-                          <td>{g.title}</td>
-                          <td>
-                            {g.score}/{g.outOf}
-                          </td>
-                          <td>{g.coefficient}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </>
-              ) : (
-                <p>Ajoute ta première note avec +.</p>
-              )}
-              <button
-                className="neo-pill"
-                onClick={() =>
-                  window.dispatchEvent(
-                    new CustomEvent("pw:quick-add", {
-                      detail: { mode: "grade" },
-                    }),
-                  )
-                }
-              >
-                + Ajouter une note
+        {tab === "Vue générale" && (
+          <section className="calm-home-paths">
+            <h2>Que souhaites-tu faire ?</h2>
+            <div>
+              <button onClick={() => setTab("Notes")}>
+                <strong>Mes notes</strong>
+                <span>
+                  {grades.length} notes · moyenne{" "}
+                  {subjectAverage(state.grades, id) ?? "—"}/20
+                </span>
               </button>
-            </section>
-            <GradeSimulator subjectId={id} />
-          </>
+              <button onClick={() => setTab("Tâches")}>
+                <strong>Mes tâches</strong>
+                <span>
+                  {tasks.filter((t) => t.status !== "done").length} à terminer
+                </span>
+              </button>
+              <button onClick={() => setTab("Chapitres")}>
+                <strong>Mes chapitres</strong>
+                <span>{chapters.length} chapitres à retrouver</span>
+              </button>
+            </div>
+          </section>
         )}
-        {(tab === "Vue générale" || tab === "Chapitres") && (
+        {tab === "Notes" && <GradeManager subjectId={id} />}
+        {tab === "Notes" && (
+          <OptionalPanel title="Tendance et simulation">
+            <>
+              <section className="neo-panel section-space">
+                <h2>Tendance des notes</h2>
+                {grades.length ? (
+                  <>
+                    <svg
+                      viewBox="0 0 600 210"
+                      role="img"
+                      aria-label="Notes normalisées sur 20"
+                    >
+                      <line
+                        x1="20"
+                        y1="190"
+                        x2="580"
+                        y2="190"
+                        stroke="currentColor"
+                      />
+                      {grades.map((g, i) => {
+                        const x =
+                            30 + (i / Math.max(1, grades.length - 1)) * 530,
+                          y = 190 - (g.score / g.outOf) * 8;
+                        const prev = grades[i - 1] || g,
+                          py = 190 - (prev.score / prev.outOf) * 8;
+                        return (
+                          <g key={g.id}>
+                            <line
+                              x1={x}
+                              x2={x}
+                              y1={Math.min(y, py) - 8}
+                              y2={Math.max(y, py) + 8}
+                              stroke="currentColor"
+                            />
+                            <rect
+                              x={x - 5}
+                              y={Math.min(y, py)}
+                              width="10"
+                              height={Math.max(3, Math.abs(y - py))}
+                              fill="currentColor"
+                              opacity={y <= py ? 1 : 0.4}
+                            />
+                            <title>
+                              {g.title} : {g.score}/{g.outOf} · coef{" "}
+                              {g.coefficient}
+                            </title>
+                          </g>
+                        );
+                      })}
+                    </svg>
+                    <table className="grade-table">
+                      <thead>
+                        <tr>
+                          <th>Évaluation</th>
+                          <th>Note</th>
+                          <th>Coefficient</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {grades.map((g) => (
+                          <tr key={g.id}>
+                            <td>{g.title}</td>
+                            <td>
+                              {g.score}/{g.outOf}
+                            </td>
+                            <td>{g.coefficient}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                ) : (
+                  <p>Ajoute ta première note avec +.</p>
+                )}
+                <button
+                  className="neo-pill"
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent("pw:quick-add", {
+                        detail: { mode: "grade" },
+                      }),
+                    )
+                  }
+                >
+                  + Ajouter une note
+                </button>
+              </section>
+              <GradeSimulator subjectId={id} />
+            </>
+          </OptionalPanel>
+        )}
+        {tab === "Chapitres" && (
           <section className="neo-panel section-space">
             <h2>Chapitres</h2>
             {chapters.map((c) => (

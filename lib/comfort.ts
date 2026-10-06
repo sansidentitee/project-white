@@ -34,6 +34,12 @@ export const comfortSections: Record<
       view: "items",
     },
     {
+      label: "Notes et tendances",
+      href: "/academic/grades",
+      description: "Ajouter, corriger ou retirer une note.",
+      view: "items",
+    },
+    {
       label: "Réviser mes erreurs",
       href: "/academic/errors",
       description: "Reprendre les points qui résistent.",
@@ -44,12 +50,6 @@ export const comfortSections: Record<
       href: "/academic/resources",
       description: "Retrouver mes documents et mes liens.",
       view: "items",
-    },
-    {
-      label: "Notes et tendances",
-      href: "/academic/grades",
-      description: "Suivre mes résultats et simuler une note.",
-      view: "progress",
     },
     {
       label: "Bilan de la semaine",

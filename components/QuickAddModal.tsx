@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useProject } from "./ProjectProvider";
 import { V3Dialog } from "./V3Dialog";
 import type { Quadrant } from "@/lib/types";
+import { useComfort, useComfortFilter } from "./ComfortProvider";
 
 export function QuickAddModal({
   open,
@@ -18,6 +19,11 @@ export function QuickAddModal({
   initialSubjectId?: string;
 }) {
   const { state, addTask, addGrade } = useProject();
+  const { ready, storageError } = useComfort();
+  const [draft, setDraft] = useComfortFilter("draft:quick-add");
+  const [defaultMinutes] = useComfortFilter("pref:minutes", "25");
+  const [template, setTemplate] = useComfortFilter("template:task");
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -42,6 +48,67 @@ export function QuickAddModal({
   const [coefficient, setCoefficient] = useState("1");
   const [duration, setDuration] = useState("25");
   const [quadrant, setQuadrant] = useState<Quadrant>("schedule");
+  useEffect(() => {
+    if (!ready || draftLoaded) return;
+    try {
+      const saved = JSON.parse(draft || "{}");
+      if (typeof saved.title === "string") setTitle(saved.title);
+      if (typeof saved.score === "string") setScore(saved.score);
+      if (typeof saved.subjectId === "string") setSubjectId(saved.subjectId);
+      if (typeof saved.date === "string") setDate(saved.date);
+      if (typeof saved.outOf === "string") setOutOf(saved.outOf);
+      if (typeof saved.coefficient === "string")
+        setCoefficient(saved.coefficient);
+      setDuration(
+        typeof saved.duration === "string" ? saved.duration : defaultMinutes,
+      );
+      if (["do", "schedule", "delegate", "eliminate"].includes(saved.quadrant))
+        setQuadrant(saved.quadrant);
+    } catch {
+      /* A malformed draft never prevents adding a new record. */
+    }
+    setDraftLoaded(true);
+  }, [ready, draftLoaded, draft, defaultMinutes]);
+  useEffect(() => {
+    if (!draftLoaded) return;
+    const next = JSON.stringify({
+      title,
+      subjectId,
+      date,
+      score,
+      outOf,
+      coefficient,
+      duration,
+      quadrant,
+    });
+    if (next !== draft) setDraft(next);
+  }, [
+    draftLoaded,
+    title,
+    subjectId,
+    date,
+    score,
+    outOf,
+    coefficient,
+    duration,
+    quadrant,
+    draft,
+    setDraft,
+  ]);
+  function applyTemplate(raw: string) {
+    try {
+      const value = JSON.parse(raw);
+      if (typeof value.title === "string") setTitle(value.title);
+      if (typeof value.duration === "string") setDuration(value.duration);
+      if (
+        typeof value.subjectId === "string" &&
+        state.subjects.some((s) => s.id === value.subjectId)
+      )
+        setSubjectId(value.subjectId);
+    } catch {
+      setError("Ce modèle ne peut pas être chargé.");
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -110,7 +177,7 @@ export function QuickAddModal({
       setScore("");
       setOutOf("20");
       setCoefficient("1");
-      if (!keepAdding) setDuration("25");
+      if (!keepAdding) setDuration(defaultMinutes);
       setQuadrant("schedule");
       if (!keepAdding) onClose();
       else setNotice("Enregistré. Tu peux ajouter le suivant.");
@@ -157,6 +224,67 @@ export function QuickAddModal({
               Note
             </button>
           </div>
+
+          {(title || score) && (
+            <p className="calm-draft-note">
+              Brouillon conservé sur cet appareil.
+              <button
+                type="button"
+                onClick={() => {
+                  setTitle("");
+                  setScore("");
+                  setSubjectId(initialSubjectId || "");
+                  setDate("");
+                  setOutOf("20");
+                  setCoefficient("1");
+                  setDuration(defaultMinutes);
+                  setQuadrant("schedule");
+                }}
+              >
+                Effacer
+              </button>
+            </p>
+          )}
+          {storageError && <p role="alert">{storageError}</p>}
+          {mode === "task" && (
+            <details className="comfort-details">
+              <summary>Partir d’un modèle</summary>
+              <div className="calm-template-list">
+                {[
+                  ["Réviser un chapitre", "25"],
+                  ["Faire des exercices", "45"],
+                  ["Préparer un contrôle", "60"],
+                ].map(([label, minutes]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() =>
+                      applyTemplate(
+                        JSON.stringify({ title: label, duration: minutes }),
+                      )
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+                {template && (
+                  <button type="button" onClick={() => applyTemplate(template)}>
+                    Mon modèle enregistré
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={!title.trim()}
+                  onClick={() => {
+                    setTemplate(JSON.stringify({ title, duration, subjectId }));
+                    setNotice("Modèle enregistré sur cet appareil.");
+                  }}
+                >
+                  Conserver cette tâche comme modèle
+                </button>
+              </div>
+            </details>
+          )}
 
           <details
             className="comfort-details"
@@ -275,7 +403,8 @@ export function QuickAddModal({
           {notice && <p role="status">{notice}</p>}
           {mode === "task" && (
             <p className="comfort-field-hint">
-              Un titre suffit. Durée préremplie : 25 minutes, sans échéance.
+              Un titre suffit. Durée préremplie : {defaultMinutes} minutes, sans
+              échéance.
             </p>
           )}
           <div className="os-modal-actions comfort-form-actions">

@@ -5,6 +5,7 @@ import { useLife } from "./LifeProvider";
 import { LearningStudio } from "./ProgressWorkspace";
 import { TradeReview, TradeQuality } from "./TradeReview";
 import { useComfortFilter } from "./ComfortProvider";
+import { OptionalPanel } from "./CalmWorkspace";
 import { useTrading, Trade } from "./TradingProvider";
 import {
   ActionFeedback,
@@ -421,7 +422,11 @@ function FinanceOverview() {
 export function FinanceWorkspace({ section = "" }: { section?: string }) {
   return (
     <LifeLayout universe="finance" section={section}>
-      {(section === "" || section === "analyses") && <TradeQuality />}
+      {(section === "" || section === "analyses") && (
+        <OptionalPanel title="Qualité de mes décisions">
+          <TradeQuality />
+        </OptionalPanel>
+      )}
       {section === "learning" && <LearningStudio />}
       {section === "analyses" ? (
         <TradingAnalytics />

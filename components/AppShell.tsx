@@ -38,6 +38,14 @@ import { SaveStatus } from "./SaveProvider";
 import { SyncStatus } from "./GlobalWorkspace";
 import { NextAction } from "./NextAction";
 import { comfortHomes } from "@/lib/comfort";
+import { useComfortFilter } from "./ComfortProvider";
+import {
+  ComfortMode,
+  HomePaths,
+  OptionalPanel,
+  PageLocation,
+} from "./CalmWorkspace";
+import { DailyReviewPrompt } from "./DailyReview";
 import { isTyping } from "@/lib/shortcuts";
 import {
   universeDescriptions,
@@ -101,7 +109,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
   const universe = universeFromPath(path);
+  const [comfortMode] = useComfortFilter("pref:mode", "essential");
+  const [density] = useComfortFilter("pref:density", "comfortable");
+  const [textSize] = useComfortFilter("pref:text", "normal");
+  const [motion] = useComfortFilter("pref:motion", "quiet");
   const universeMeta = universes.find((x) => x.id === universe)!;
+  const globalPage = ["/daily-review", "/today", "/settings", "/search"].includes(path);
+  const mainNav = globalPage ? [
+    { href: "/today", label: "Aujourd’hui", icon: House },
+    { href: "/daily-review", label: "Mes bilans", icon: NotebookPen },
+    { href: "/settings", label: "Mon confort", icon: CircleUserRound },
+  ] : [
+    { href: comfortHomes[universe], label: "Aujourd’hui", icon: House },
+    { href: `/workspace/${universe}/items`, label: "Mes éléments", icon: FolderOpen },
+    { href: `/workspace/${universe}/progress`, label: "Progression", icon: ChartNoAxesColumnIncreasing },
+  ];
   const currentNav =
     universe === "academic"
       ? academicNav
@@ -255,15 +277,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <div className="os-loader">Project White</div>;
 
   return (
-    <div className="os-shell universe-shell">
+    <div
+      className="os-shell universe-shell calm-shell"
+      data-comfort={comfortMode}
+      data-density={density}
+      data-text={textSize}
+      data-motion={motion}
+      data-universe={universe}
+    >
+      <a className="calm-skip" href="#main-content">
+        Aller au contenu
+      </a>
       <aside className="os-sidebar universe-sidebar">
-        <Link href="/academic/dashboard" className="os-brand">
+        <Link href={globalPage ? "/today" : comfortHomes[universe]} className="os-brand">
           <span className="os-brand-icon">
             <Sparkles size={18} />
           </span>
           <span>
             <strong>Project White</strong>
-            <small>{universeMeta.label.toUpperCase()} · OS</small>
+            <small>{globalPage ? "MES QUATRE ESPACES" : universeMeta.label.toUpperCase() + " · OS"}</small>
           </span>
         </Link>
 
@@ -281,19 +313,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className="os-nav academic-side-nav"
           aria-label={universeMeta.label}
         >
-          {[
-            { href: comfortHomes[universe], label: "Aujourd’hui", icon: House },
-            {
-              href: `/workspace/${universe}/items`,
-              label: "Mes éléments",
-              icon: FolderOpen,
-            },
-            {
-              href: `/workspace/${universe}/progress`,
-              label: "Progression",
-              icon: ChartNoAxesColumnIncreasing,
-            },
-          ].map(({ href, label, icon: Icon }) => {
+          {mainNav.map(({ href, label, icon: Icon }) => {
             const active = path === href;
             return (
               <Link
@@ -329,7 +349,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="os-sidebar-bottom">
           <div className="sidebar-quick-actions">
-            {universe === "academic" && (
+            {universe === "academic" && !globalPage && (
               <button
                 className="os-round-button"
                 aria-label="Ajouter rapidement"
@@ -372,8 +392,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={id}
                 href={href}
-                className={universe === id ? "active" : ""}
-                aria-current={universe === id ? "page" : undefined}
+                className={!globalPage && universe === id ? "active" : ""}
+                aria-current={!globalPage && universe === id ? "page" : undefined}
               >
                 <span>
                   <Icon size={17} />
@@ -394,7 +414,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Search size={18} />
             </button>
-            {universe === "academic" && (
+            {universe === "academic" && comfortMode === "complete" && (
               <button
                 className="os-icon-button os-bell"
                 aria-label="Notifications"
@@ -410,33 +430,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="os-content">
+        <main className="os-content" id="main-content">
           <nav
             className="comfort-mobile-nav"
             aria-label="Navigation principale"
           >
-            <Link
-              href={comfortHomes[universe]}
-              aria-current={
-                path === comfortHomes[universe] ? "page" : undefined
-              }
-            >
-              Aujourd’hui
-            </Link>
-            <Link
-              href={`/workspace/${universe}/items`}
-              aria-current={path.endsWith("/items") ? "page" : undefined}
-            >
-              Mes éléments
-            </Link>
-            <Link
-              href={`/workspace/${universe}/progress`}
-              aria-current={path.endsWith("/progress") ? "page" : undefined}
-            >
-              Progression
-            </Link>
+            {mainNav.map(item => <Link key={item.href} href={item.href} aria-current={path === item.href ? "page" : undefined}>{item.label}</Link>)}
           </nav>
           <div className="comfort-utilities">
+            <ComfortMode />
+            <Link href="/daily-review">Bilan du soir</Link>
             <Link href="/today">Tous les univers</Link>
             <Link href="/search">Rechercher</Link>
             <details className="comfort-mobile-tools">
@@ -461,21 +464,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
           )}
           <div className="comfort-page">
+            <PageLocation universe={universe} path={path} />
             {(path === comfortHomes[universe] || path === "/today") && (
               <NextAction universe={universe} global={path === "/today"} />
             )}
             {path === comfortHomes[universe] ? (
-              <details className="comfort-overview">
-                <summary>Voir mon aperçu et mes statistiques</summary>
-                {children}
-              </details>
+              <>
+                <HomePaths universe={universe} />
+                <OptionalPanel title="Mon aperçu et mes statistiques">
+                  {children}
+                </OptionalPanel>
+              </>
             ) : (
               children
             )}
           </div>
           <SaveStatus />
         </main>
-        {universe === "academic" && (
+        {universe === "academic" && !globalPage && (
           <button
             className="os-floating-add"
             aria-label="Ajouter"
@@ -486,6 +492,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         )}
       </section>
+      <DailyReviewPrompt />
 
       <button
         className="v3-help neo-pill"

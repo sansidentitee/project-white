@@ -276,6 +276,28 @@ export function EntryManager({
     `entries:${universe}:${kind}:${title}`,
   );
   const [lastAdded, setLastAdded] = useState("");
+  const [draft, setDraft] = useComfortFilter(`draft:entry:${universe}:${kind}`);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [limit, setLimit] = useState(10);
+  useEffect(() => {
+    if (!open || editing) return;
+    try {
+      const saved = JSON.parse(draft || "{}");
+      Object.entries(saved).forEach(([name, value]) => {
+        const field = formRef.current?.elements.namedItem(name);
+        if (
+          (field instanceof HTMLInputElement ||
+            field instanceof HTMLTextAreaElement ||
+            field instanceof HTMLSelectElement) &&
+          typeof value === "string"
+        )
+          field.value = value;
+      });
+    } catch {
+      /* Keep the empty form usable if a draft cannot be restored. */
+    }
+    // Restore once when opening; changing fields must never reset another field.
+  }, [open, editing]);
   const addLabel: Record<string, string> = {
     quran: "Ajouter une session",
     memorization: "Ajouter un passage",
@@ -329,6 +351,7 @@ export function EntryManager({
       )
     ) {
       setLastAdded(String(form.get("title")));
+      if (!editing) setDraft("");
       if (!keepAdding) setOpen(false);
       else {
         formElement.reset();
@@ -361,7 +384,10 @@ export function EntryManager({
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setLimit(10);
+            }}
             placeholder="Un titre…"
           />
         </label>
@@ -380,7 +406,7 @@ export function EntryManager({
         </p>
       )}
       <div className="life-list">
-        {visibleEntries.map((entry) => (
+        {visibleEntries.slice(0, limit).map((entry) => (
           <article className="life-entry" key={entry.id}>
             <div>
               <h3>{entry.title}</h3>
@@ -453,6 +479,11 @@ export function EntryManager({
           </article>
         ))}
       </div>
+      {visibleEntries.length > limit && (
+        <button className="neo-pill" onClick={() => setLimit(limit + 10)}>
+          Afficher les 10 suivants
+        </button>
+      )}
       {!!entries.length && !visibleEntries.length && (
         <p role="status">
           Aucun résultat.{" "}
@@ -472,9 +503,36 @@ export function EntryManager({
       >
         <form
           className="life-form"
+          ref={formRef}
           key={editing?.id || "new"}
           onSubmit={submit}
+          onChange={(e) => {
+            if (!editing)
+              setDraft(
+                JSON.stringify(
+                  Object.fromEntries(
+                    [...new FormData(e.currentTarget).entries()].filter(
+                      ([, v]) => typeof v === "string",
+                    ),
+                  ),
+                ),
+              );
+          }}
         >
+          {!editing && draft && (
+            <p className="calm-draft-note">
+              Brouillon conservé sur cet appareil.
+              <button
+                type="button"
+                onClick={() => {
+                  formRef.current?.reset();
+                  setDraft("");
+                }}
+              >
+                Effacer
+              </button>
+            </p>
+          )}
           <label>
             Titre
             <input

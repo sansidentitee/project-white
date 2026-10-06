@@ -3,6 +3,8 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useLife } from "./LifeProvider";
 import { HealthTrends } from "./ProgressWorkspace";
+import { OptionalPanel } from "./CalmWorkspace";
+import { useComfortFilter } from "./ComfortProvider";
 import {
   ActionFeedback,
   EntryManager,
@@ -35,6 +37,10 @@ const dailyFields = [
 function DailyHealth() {
   const life = useLife(),
     action = useLifeAction();
+  const [shown, setShown] = useComfortFilter(
+    "pref:health-fields",
+    "sleep,energy,mood",
+  );
   const [day, setDay] = useState(localDay()),
     [values, setValues] = useState<Record<string, string>>({});
   const dirty = useRef(false);
@@ -93,24 +99,51 @@ function DailyHealth() {
           />
         </label>
         <div className="life-form-grid">
+          {dailyFields
+            .filter((f) => shown.split(",").includes(f.key))
+            .map((f) => (
+              <label key={f.key}>
+                {f.label}
+                <input
+                  type="number"
+                  min={f.min}
+                  max={f.max}
+                  step={f.step}
+                  value={values[f.key] || ""}
+                  onChange={(e) => {
+                    dirty.current = true;
+                    setValues((v) => ({ ...v, [f.key]: e.target.value }));
+                  }}
+                  placeholder="Non renseigné"
+                />
+              </label>
+            ))}
+        </div>
+        <details className="comfort-details">
+          <summary>Choisir mes indicateurs</summary>
+          <p>Les indicateurs masqués gardent leurs valeurs enregistrées.</p>
           {dailyFields.map((f) => (
-            <label key={f.key}>
-              {f.label}
+            <label key={f.key} className="calm-checkbox">
               <input
-                type="number"
-                min={f.min}
-                max={f.max}
-                step={f.step}
-                value={values[f.key] || ""}
-                onChange={(e) => {
-                  dirty.current = true;
-                  setValues((v) => ({ ...v, [f.key]: e.target.value }));
-                }}
-                placeholder="Non renseigné"
+                type="checkbox"
+                checked={shown.split(",").includes(f.key)}
+                onChange={(e) =>
+                  setShown(
+                    e.target.checked
+                      ? [...new Set([...shown.split(","), f.key])]
+                          .filter(Boolean)
+                          .join(",")
+                      : shown
+                          .split(",")
+                          .filter((k) => k !== f.key)
+                          .join(","),
+                  )
+                }
               />
+              {f.label}
             </label>
           ))}
-        </div>
+        </details>
         <label>
           Ressenti / repas / récupération
           <textarea
@@ -283,7 +316,9 @@ export function HealthWorkspace({ section = "" }: { section?: string }) {
   return (
     <LifeLayout universe="health" section={section}>
       {(section === "" || section === "daily" || section === "habits") && (
-        <HealthTrends />
+        <OptionalPanel title="Tendances de ma santé">
+          <HealthTrends />
+        </OptionalPanel>
       )}
       {section === "daily" ? (
         <DailyHealth />

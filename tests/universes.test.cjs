@@ -23,6 +23,70 @@ const {
 } = require("../lib/life.ts");
 const { tradingSummary, positionSize } = require("../lib/finance.ts");
 const { writeLocalIfChanged } = require("../lib/localStore.ts");
+const { validateGrade } = require("../lib/gradeValidation.ts");
+const {
+  reviewKeys,
+  answeredCount,
+  validateDailyReview,
+  shouldOpenEveningReview,
+} = require("../lib/dailyReview.ts");
+test("Evening review opens after the configured hour once per unfinished day", () => {
+  assert.equal(
+    shouldOpenEveningReview(new Date(2026, 9, 6, 16, 59), 17, false, false),
+    false,
+  );
+  assert.equal(
+    shouldOpenEveningReview(new Date(2026, 9, 6, 17, 0), 17, false, false),
+    true,
+  );
+  assert.equal(
+    shouldOpenEveningReview(new Date(2026, 9, 6, 19, 0), 17, true, false),
+    false,
+  );
+  assert.equal(
+    shouldOpenEveningReview(new Date(2026, 9, 6, 19, 0), 17, false, true),
+    false,
+  );
+});
+test("Finishing a review requires all sixteen answers; drafts may be partial", () => {
+  const today = require("../lib/life.ts").localDay();
+  assert.equal(new Set(reviewKeys).size, 16);
+  assert.doesNotThrow(() =>
+    validateDailyReview(today, { "academic:lessons": "Maths" }, false),
+  );
+  assert.throws(() =>
+    validateDailyReview(today, { "academic:lessons": "Maths" }, true),
+  );
+  const answers = Object.fromEntries(
+    reviewKeys.map((k) => [k, "Rien à signaler aujourd’hui."]),
+  );
+  assert.equal(answeredCount(answers), 16);
+  assert.doesNotThrow(() => validateDailyReview(today, answers, true));
+});
+test("Review rejects impossible dates, unknown fields and oversized answers", () => {
+  const today = require("../lib/life.ts").localDay();
+  assert.throws(() => validateDailyReview("2026-02-30", {}, false));
+  assert.throws(() => validateDailyReview("2999-01-01", {}, false));
+  assert.throws(() => validateDailyReview(today, { unknown: "x" }, false));
+  assert.throws(() =>
+    validateDailyReview(today, { "health:energy": "x".repeat(3001) }, false),
+  );
+});
+test("Grade edits retain mixed scales, fractional coefficients and zero scores", () => {
+  const grade = {
+    subjectId: "maths",
+    title: "Contrôle",
+    score: 0,
+    outOf: 5,
+    coefficient: 0.5,
+    takenAt: "2026-10-06T12:00:00Z",
+  };
+  assert.doesNotThrow(() => validateGrade(grade));
+  assert.throws(() => validateGrade({ ...grade, score: 6 }));
+  assert.throws(() => validateGrade({ ...grade, coefficient: 0 }));
+  assert.throws(() => validateGrade({ ...grade, outOf: 0 }));
+  assert.throws(() => validateGrade({ ...grade, takenAt: "invalid" }));
+});
 test("Refreshing unchanged local data does not broadcast another storage write", () => {
   let raw = null,
     writes = 0;
