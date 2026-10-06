@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { useAuth } from "./AuthProvider";
+import { useSave } from "./SaveProvider";
 import { supabase } from "@/lib/supabase/client";
 import { demoState } from "@/lib/demo";
 import type {
@@ -24,6 +25,7 @@ import type {
   WorkSession,
 } from "@/lib/types";
 import { autoPlan } from "@/lib/scheduler";
+import { writeLocalIfChanged } from "@/lib/localStore";
 
 const empty: ProjectState = {
   subjects: [],
@@ -52,7 +54,7 @@ type ProjectCtx = {
   state: ProjectState;
   loading: boolean;
   demoMode: boolean;
-  refresh: () => Promise<void>;
+  refresh: (background?: boolean) => Promise<void>;
   addTask: (task: Omit<Task, "id">) => Promise<Task>;
   updateTask: (id: string, patch: Partial<Task>) => Promise<void>;
   removeTask: (id: string) => Promise<void>;
@@ -83,7 +85,8 @@ const uuid = () => crypto.randomUUID();
 const subjectMatches = (subject: Subject, name: string, shortName: string) =>
   subject.name.toLowerCase() === name.toLowerCase() ||
   subject.shortName.toLowerCase() === shortName.toLowerCase() ||
-  (name === "Histoire-Géographie" && subject.name.toLowerCase().startsWith("histoire"));
+  (name === "Histoire-Géographie" &&
+    subject.name.toLowerCase().startsWith("histoire"));
 
 function normalizeLocal(s: any): ProjectState {
   const base = s && typeof s === "object" ? s : {};
@@ -117,8 +120,9 @@ function localLoad(): ProjectState {
   }
 }
 function localSave(s: ProjectState) {
-  if (typeof window !== "undefined")
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(s));
+  if (typeof window !== "undefined") {
+    writeLocalIfChanged(localStorage, LOCAL_KEY, s);
+  }
 }
 
 const dbToSubject = (x: any): Subject => ({
@@ -206,137 +210,159 @@ const dbToGoal = (x: any): AcademicGoal => ({
 });
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
+  const saving = useSave();
   const { user, configured, loading: authLoading } = useAuth();
   const [state, setState] = useState<ProjectState>(empty);
   const localState = useRef(state);
+  const refreshTicket = useRef(0),
+    account = useRef("");
+  const owner = configured ? user?.id || "signed-out" : "local";
+  account.current = owner;
   localState.current = state;
   const [loading, setLoading] = useState(true);
   const demoMode = !configured;
   const [error, setError] = useState("");
 
-  const refresh = useCallback(async () => {
-    if (authLoading) return;
-    setLoading(true);
-    setError("");
-    try {
-      if (!configured || !supabase) {
-        const local = localLoad();
-        for (const [name, shortName, icon] of REQUIRED_SUBJECTS) {
-          if (
-            !local.subjects.some(
-              (s) => subjectMatches(s, name, shortName),
-            )
-          )
-            local.subjects.push({ id: uuid(), name, shortName, icon });
+  const refresh = useCallback(
+    async (background = false) => {
+      if (authLoading) return;
+      const current = owner,
+        turn = ++refreshTicket.current;
+      if (!background) setLoading(true);
+      setError("");
+      try {
+        if (!configured || !supabase) {
+          const local = localLoad();
+          for (const [name, shortName, icon] of REQUIRED_SUBJECTS) {
+            if (!local.subjects.some((s) => subjectMatches(s, name, shortName)))
+              local.subjects.push({ id: uuid(), name, shortName, icon });
+          }
+          localSave(local);
+          setState(local);
+          setLoading(false);
+          return;
         }
-        localSave(local);
-        setState(local);
+        if (!user) {
+          setState(empty);
+          setLoading(false);
+          return;
+        }
+
+        async function readAll(table: string, sort: string) {
+          const rows: any[] = [];
+          for (let offset = 0; ; offset += 1000) {
+            if (account.current !== current || refreshTicket.current !== turn)
+              throw Error("Chargement remplacé.");
+            const { data, error } = await supabase!
+              .from(table)
+              .select("*")
+              .eq("user_id", user!.id)
+              .order(sort)
+              .order("id")
+              .range(offset, offset + 999);
+            if (error) throw error;
+            rows.push(...(data || []));
+            if ((data?.length || 0) < 1000) break;
+          }
+          return { data: rows, error: null };
+        }
+        const [s, c, t, g, w, r, e, go, p] = await Promise.all([
+          readAll("subjects", "created_at"),
+          readAll("chapters", "created_at"),
+          readAll("tasks", "created_at"),
+          readAll("grades", "taken_at"),
+          readAll("work_sessions", "started_at"),
+          readAll("resources", "created_at"),
+          readAll("academic_errors", "created_at"),
+          readAll("academic_goals", "created_at"),
+          supabase
+            .from("academic_preferences")
+            .select("*")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ]);
+        if (account.current !== current || refreshTicket.current !== turn)
+          return;
+
+        if ([s, c, t, g, w, r, e, go, p].some((result) => result.error))
+          throw new Error("Chargement incomplet");
+
+        let subjects = (s.data ?? []).map(dbToSubject);
+        const missing = REQUIRED_SUBJECTS.filter(
+          ([name, shortName]) =>
+            !subjects.some((x) => subjectMatches(x, name, shortName)),
+        );
+        if (missing.length) {
+          const rows = missing.map(([name, short_name, icon]) => ({
+            user_id: user.id,
+            name,
+            short_name,
+            icon,
+          }));
+          const inserted = await supabase
+            .from("subjects")
+            .insert(rows)
+            .select("*");
+          if (inserted.error) throw inserted.error;
+          if (inserted.data)
+            subjects = [...subjects, ...inserted.data.map(dbToSubject)];
+        }
+
+        let averageGoal = Number((p.data as any)?.average_goal) || 18;
+        if (!p.data) {
+          const pref = await supabase
+            .from("academic_preferences")
+            .upsert(
+              {
+                user_id: user.id,
+                average_goal: 18,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "user_id" },
+            )
+            .select("*")
+            .single();
+          averageGoal = Number(pref.data?.average_goal) || 18;
+        }
+
+        if (account.current !== current || refreshTicket.current !== turn)
+          return;
+        setState({
+          subjects,
+          chapters: (c.data ?? []).map(dbToChapter),
+          tasks: (t.data ?? []).map(dbToTask),
+          grades: (g.data ?? []).map(dbToGrade),
+          sessions: (w.data ?? []).map(dbToSession),
+          resources: (r.data ?? []).map(dbToResource),
+          errors: (e.data ?? []).map(dbToError),
+          goals: (go.data ?? []).map(dbToGoal),
+          preferences: {
+            averageGoal,
+            dashboardWidgets: Array.isArray(p.data?.dashboard_widgets)
+              ? p.data.dashboard_widgets.filter(
+                  (w: unknown) => typeof w === "string",
+                )
+              : undefined,
+            tutorialCompleted: p.data?.tutorial_completed ?? false,
+          },
+        });
         setLoading(false);
-        return;
-      }
-      if (!user) {
-        setState(empty);
+      } catch {
+        if (account.current !== current || refreshTicket.current !== turn)
+          return;
+        setError("Impossible de charger toutes les données. Réessaie.");
         setLoading(false);
-        return;
       }
-
-      const [s, c, t, g, w, r, e, go, p] = await Promise.all([
-        supabase.from("subjects").select("*").order("created_at"),
-        supabase.from("chapters").select("*").order("created_at"),
-        supabase.from("tasks").select("*").order("created_at"),
-        supabase
-          .from("grades")
-          .select("*")
-          .order("taken_at", { ascending: false }),
-        supabase
-          .from("work_sessions")
-          .select("*")
-          .order("started_at", { ascending: false })
-          .limit(150),
-        supabase
-          .from("resources")
-          .select("*")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("academic_errors")
-          .select("*")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("academic_goals")
-          .select("*")
-          .order("created_at", { ascending: false }),
-        supabase.from("academic_preferences").select("*").maybeSingle(),
-      ]);
-
-      if ([s, c, t, g, w, r, e, go, p].some((result) => result.error))
-        throw new Error("Chargement incomplet");
-
-      let subjects = (s.data ?? []).map(dbToSubject);
-      const missing = REQUIRED_SUBJECTS.filter(
-        ([name, shortName]) =>
-          !subjects.some((x) => subjectMatches(x, name, shortName)),
-      );
-      if (missing.length) {
-        const rows = missing.map(([name, short_name, icon]) => ({
-          user_id: user.id,
-          name,
-          short_name,
-          icon,
-        }));
-        const inserted = await supabase
-          .from("subjects")
-          .insert(rows)
-          .select("*");
-        if (inserted.error) throw inserted.error;
-        if (inserted.data)
-          subjects = [...subjects, ...inserted.data.map(dbToSubject)];
-      }
-
-      let averageGoal = Number((p.data as any)?.average_goal) || 18;
-      if (!p.data) {
-        const pref = await supabase
-          .from("academic_preferences")
-          .upsert(
-            {
-              user_id: user.id,
-              average_goal: 18,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "user_id" },
-          )
-          .select("*")
-          .single();
-        averageGoal = Number(pref.data?.average_goal) || 18;
-      }
-
-      setState({
-        subjects,
-        chapters: (c.data ?? []).map(dbToChapter),
-        tasks: (t.data ?? []).map(dbToTask),
-        grades: (g.data ?? []).map(dbToGrade),
-        sessions: (w.data ?? []).map(dbToSession),
-        resources: (r.data ?? []).map(dbToResource),
-        errors: (e.data ?? []).map(dbToError),
-        goals: (go.data ?? []).map(dbToGoal),
-        preferences: {
-          averageGoal,
-          dashboardWidgets: Array.isArray(p.data?.dashboard_widgets)
-            ? p.data.dashboard_widgets.filter(
-                (w: unknown) => typeof w === "string",
-              )
-            : undefined,
-          tutorialCompleted: p.data?.tutorial_completed ?? false,
-        },
-      });
-      setLoading(false);
-    } catch {
-      setError("Impossible de charger toutes les données. Réessaie.");
-      setLoading(false);
-    }
-  }, [user, configured, authLoading]);
+    },
+    [user, configured, authLoading, owner],
+  );
 
   useEffect(() => {
+    setState(empty);
     refresh();
+    return () => {
+      refreshTicket.current++;
+    };
   }, [refresh]);
 
   const updateLocal = (fn: (s: ProjectState) => ProjectState) => {
@@ -374,12 +400,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .single();
     if (error) throw error;
     const task = dbToTask(data);
-    setState((s) => ({ ...s, tasks: [...s.tasks, task] }));
+    setState((s) =>
+      account.current !== owner ? s : { ...s, tasks: [...s.tasks, task] },
+    );
     return task;
   }
 
   async function updateTask(id: string, patch: Partial<Task>) {
-    if (patch.status)
+    if (patch.status && !("completedAt" in patch))
       patch = {
         ...patch,
         completedAt: patch.status === "done" ? new Date().toISOString() : null,
@@ -406,10 +434,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     );
     const { error } = await supabase.from("tasks").update(db).eq("id", id);
     if (error) throw error;
-    setState((s) => ({
-      ...s,
-      tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : {
+            ...s,
+            tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+          },
+    );
   }
 
   async function removeTask(id: string) {
@@ -421,7 +453,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
     const { error } = await supabase.from("tasks").delete().eq("id", id);
     if (error) throw error;
-    setState((s) => ({ ...s, tasks: s.tasks.filter((t) => t.id !== id) }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, tasks: s.tasks.filter((t) => t.id !== id) },
+    );
   }
 
   async function addGrade(input: Omit<Grade, "id">) {
@@ -456,7 +492,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .select("*")
       .single();
     if (error) throw error;
-    setState((s) => ({ ...s, grades: [dbToGrade(data), ...s.grades] }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, grades: [dbToGrade(data), ...s.grades] },
+    );
   }
 
   async function addChapter(input: Omit<Chapter, "id">) {
@@ -478,7 +518,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .select("*")
       .single();
     if (error) throw error;
-    setState((s) => ({ ...s, chapters: [...s.chapters, dbToChapter(data)] }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, chapters: [...s.chapters, dbToChapter(data)] },
+    );
   }
 
   async function updateChapter(id: string, patch: Partial<Chapter>) {
@@ -496,10 +540,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     if (patch.status !== undefined) db.status = patch.status;
     const { error } = await supabase.from("chapters").update(db).eq("id", id);
     if (error) throw error;
-    setState((s) => ({
-      ...s,
-      chapters: s.chapters.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-    }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : {
+            ...s,
+            chapters: s.chapters.map((c) =>
+              c.id === id ? { ...c, ...patch } : c,
+            ),
+          },
+    );
   }
 
   async function addSession(input: Omit<WorkSession, "id">) {
@@ -524,7 +574,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .select("*")
       .single();
     if (error) throw error;
-    setState((s) => ({ ...s, sessions: [dbToSession(data), ...s.sessions] }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, sessions: [dbToSession(data), ...s.sessions] },
+    );
   }
 
   async function addResource(input: Omit<Resource, "id">) {
@@ -548,10 +602,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .select("*")
       .single();
     if (error) throw error;
-    setState((s) => ({
-      ...s,
-      resources: [dbToResource(data), ...s.resources],
-    }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : {
+            ...s,
+            resources: [dbToResource(data), ...s.resources],
+          },
+    );
   }
 
   async function updateResource(id: string, patch: Partial<Resource>) {
@@ -574,10 +632,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     );
     const { error } = await supabase.from("resources").update(db).eq("id", id);
     if (error) throw error;
-    setState((s) => ({
-      ...s,
-      resources: s.resources.map((r) => (r.id === id ? { ...r, ...patch } : r)),
-    }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : {
+            ...s,
+            resources: s.resources.map((r) =>
+              r.id === id ? { ...r, ...patch } : r,
+            ),
+          },
+    );
   }
 
   async function removeResource(id: string) {
@@ -608,10 +672,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
     const { error } = await supabase.from("resources").delete().eq("id", id);
     if (error) throw error;
-    setState((s) => ({
-      ...s,
-      resources: s.resources.filter((r) => r.id !== id),
-    }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : {
+            ...s,
+            resources: s.resources.filter((r) => r.id !== id),
+          },
+    );
   }
 
   async function uploadResource(subjectId: string, file: File) {
@@ -666,7 +734,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .select("*")
       .single();
     if (error) throw error;
-    setState((s) => ({ ...s, errors: [dbToError(data), ...s.errors] }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, errors: [dbToError(data), ...s.errors] },
+    );
   }
 
   async function updateError(id: string, patch: Partial<AcademicError>) {
@@ -693,10 +765,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .update(db)
       .eq("id", id);
     if (error) throw error;
-    setState((s) => ({
-      ...s,
-      errors: s.errors.map((x) => (x.id === id ? { ...x, ...patch } : x)),
-    }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : {
+            ...s,
+            errors: s.errors.map((x) => (x.id === id ? { ...x, ...patch } : x)),
+          },
+    );
   }
 
   async function removeError(id: string) {
@@ -714,7 +790,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .delete()
       .eq("id", id);
     if (error) throw error;
-    setState((s) => ({ ...s, errors: s.errors.filter((x) => x.id !== id) }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, errors: s.errors.filter((x) => x.id !== id) },
+    );
   }
 
   async function addGoal(input: Omit<AcademicGoal, "id">) {
@@ -741,7 +821,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .select("*")
       .single();
     if (error) throw error;
-    setState((s) => ({ ...s, goals: [dbToGoal(data), ...s.goals] }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, goals: [dbToGoal(data), ...s.goals] },
+    );
   }
 
   async function updateGoal(id: string, patch: Partial<AcademicGoal>) {
@@ -769,10 +853,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .update(db)
       .eq("id", id);
     if (error) throw error;
-    setState((s) => ({
-      ...s,
-      goals: s.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)),
-    }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : {
+            ...s,
+            goals: s.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)),
+          },
+    );
   }
 
   async function removeGoal(id: string) {
@@ -787,7 +875,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .delete()
       .eq("id", id);
     if (error) throw error;
-    setState((s) => ({ ...s, goals: s.goals.filter((g) => g.id !== id) }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, goals: s.goals.filter((g) => g.id !== id) },
+    );
   }
 
   async function setAverageGoal(value: number) {
@@ -810,10 +902,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       { onConflict: "user_id" },
     );
     if (error) throw error;
-    setState((s) => ({
-      ...s,
-      preferences: { ...s.preferences, averageGoal: clean },
-    }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : {
+            ...s,
+            preferences: { ...s.preferences, averageGoal: clean },
+          },
+    );
   }
 
   async function saveAcademicPreferences(
@@ -835,7 +931,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       .from("academic_preferences")
       .upsert(row, { onConflict: "user_id" });
     if (error) throw error;
-    setState((s) => ({ ...s, preferences: { ...s.preferences, ...patch } }));
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, preferences: { ...s.preferences, ...patch } },
+    );
   }
   async function organizeWeek() {
     const planned = autoPlan(state.tasks);
@@ -878,7 +978,67 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     [state, loading, error, demoMode, refresh],
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  function reversible<T extends { id: string }>(
+    label: string,
+    rows: T[],
+    fn: (id: string, patch: Partial<T>) => Promise<void>,
+  ) {
+    return (id: string, patch: Partial<T>) => {
+      const before = rows.find((r) => r.id === id);
+      const inverse = before
+        ? (Object.fromEntries(
+            Object.keys(patch).map((key) => [
+              key,
+              (before as Record<string, unknown>)[key] ?? null,
+            ]),
+          ) as Partial<T>)
+        : undefined;
+      if (inverse && "status" in patch && "completedAt" in (before || {}))
+        (inverse as Partial<Task>).completedAt =
+          (before as unknown as Task).completedAt ?? null;
+      return saving.run(
+        label,
+        () => fn(id, patch),
+        inverse ? () => fn(id, inverse) : undefined,
+      );
+    };
+  }
+  const tracked: ProjectCtx = {
+    ...value,
+    addTask: (v) => saving.run("Nouvelle tâche", () => addTask(v)),
+    addGrade: (v) => saving.run("Nouvelle note", () => addGrade(v)),
+    addChapter: (v) => saving.run("Nouveau chapitre", () => addChapter(v)),
+    addSession: (v) => saving.run("Session Focus", () => addSession(v)),
+    addResource: (v) => saving.run("Nouvelle ressource", () => addResource(v)),
+    addError: (v) => saving.run("Nouvelle erreur", () => addError(v)),
+    addGoal: (v) => saving.run("Nouvel objectif", () => addGoal(v)),
+    updateTask: reversible("Tâche", state.tasks, updateTask),
+    updateChapter: reversible("Chapitre", state.chapters, updateChapter),
+    updateResource: reversible("Ressource", state.resources, updateResource),
+    updateError: reversible("Révision", state.errors, updateError),
+    updateGoal: reversible("Objectif", state.goals, updateGoal),
+    removeTask: (id) => saving.run("Suppression tâche", () => removeTask(id)),
+    removeResource: (id) =>
+      saving.run("Suppression ressource", () => removeResource(id)),
+    removeError: (id) =>
+      saving.run("Suppression erreur", () => removeError(id)),
+    removeGoal: (id) =>
+      saving.run("Suppression objectif", () => removeGoal(id)),
+    saveAcademicPreferences: (v) =>
+      saving.run(
+        "Préférences",
+        () => saveAcademicPreferences(v),
+        () => saveAcademicPreferences(state.preferences),
+      ),
+    setAverageGoal: (v) =>
+      saving.run(
+        "Objectif de moyenne",
+        () => setAverageGoal(v),
+        () => setAverageGoal(state.preferences.averageGoal),
+      ),
+    organizeWeek: () => saving.run("Organisation de la semaine", organizeWeek),
+  };
+  return <Ctx.Provider value={tracked}>{children}</Ctx.Provider>;
 }
 
 export function useProject() {

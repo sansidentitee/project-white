@@ -38,6 +38,7 @@ import {
 } from "@/components/AcademicV3";
 import { UnifiedPlanning } from "@/components/UnifiedPlanning";
 import { SmartFocus } from "@/components/SmartFocus";
+import { RevisionCoach } from "@/components/ProgressWorkspace";
 import { reviewError, type Rating } from "@/lib/academic";
 import { PageFrame } from "@/components/PageFrame";
 import { useProject } from "@/components/ProjectProvider";
@@ -238,248 +239,255 @@ function AcademicDashboard() {
 
   return (
     <>
-      <SmartDashboard /><div hidden={!!state.preferences.dashboardWidgets && !state.preferences.dashboardWidgets.includes("overview")}>
-      <PageTitle
-        title="Centre académique"
-        subtitle="Notes, échéances, erreurs et révisions — uniquement ce qui aide à progresser."
-      />
-      <div className="academic-kpi-band">
-        <Link href="/academic/grades" className="academic-kpi">
-          <div
-            className="mini-donut"
-            style={{ "--p": avgPct } as CSSProperties}
-          >
-            <span />
-          </div>
-          <div>
-            <small>MOYENNE</small>
-            <strong>
-              {avg !== null ? avg.toFixed(1).replace(".0", "") : "—"}
-            </strong>
-            <p>/ 20 · {state.grades.length} notes</p>
-          </div>
-        </Link>
-        <Link href="/academic/tasks" className="academic-kpi">
-          <div
-            className="mini-donut"
-            style={{ "--p": taskPct } as CSSProperties}
-          >
-            <span />
-          </div>
-          <div>
-            <small>TÂCHES</small>
-            <strong>{open.length}</strong>
-            <p>{late ? late + " en retard" : "aucun retard"}</p>
-          </div>
-        </Link>
-        <Link href="/academic/errors" className="academic-kpi">
-          <div
-            className="mini-donut"
-            style={{ "--p": Math.min(100, errorOpen * 15) } as CSSProperties}
-          >
-            <span />
-          </div>
-          <div>
-            <small>ERREURS</small>
-            <strong>{errorOpen}</strong>
-            <p>à corriger / revoir</p>
-          </div>
-        </Link>
-        <Link href="/academic/revisions" className="academic-kpi">
-          <div
-            className="mini-donut"
-            style={{ "--p": Math.min(100, minutes / 6) } as CSSProperties}
-          >
-            <span />
-          </div>
-          <div>
-            <small>RÉVISIONS</small>
-            <strong>{Math.round(minutes / 60)} h</strong>
-            <p>{state.sessions.length} sessions</p>
-          </div>
-        </Link>
-      </div>
-
-      <div className="academic-home-grid">
-        <section className="neo-panel hero-average-panel">
-          <div className="panel-head">
-            <span className="label">MOYENNE GÉNÉRALE</span>
-            <Link href="/academic/grades">notes</Link>
-          </div>
-          <div
-            className="academic-hero-ring"
-            style={{ "--p": avgPct } as CSSProperties}
-          >
+      <SmartDashboard />
+      <div
+        hidden={
+          !!state.preferences.dashboardWidgets &&
+          !state.preferences.dashboardWidgets.includes("overview")
+        }
+      >
+        <PageTitle
+          title="Centre académique"
+          subtitle="Notes, échéances, erreurs et révisions — uniquement ce qui aide à progresser."
+        />
+        <div className="academic-kpi-band">
+          <Link href="/academic/grades" className="academic-kpi">
+            <div
+              className="mini-donut"
+              style={{ "--p": avgPct } as CSSProperties}
+            >
+              <span />
+            </div>
             <div>
+              <small>MOYENNE</small>
               <strong>
                 {avg !== null ? avg.toFixed(1).replace(".0", "") : "—"}
               </strong>
-              <span>/ 20</span>
+              <p>/ 20 · {state.grades.length} notes</p>
             </div>
-          </div>
-          <div className="academic-target-line">
-            <span>Objectif</span>
-            <input
-              aria-label="Objectif de moyenne"
-              type="number"
-              min="0"
-              max="20"
-              step=".1"
-              defaultValue={target}
-              onBlur={(e) => setAverageGoal(Number(e.target.value) || 18)}
-            />
-          </div>
-          <div className="academic-target-status">
-            {avg
-              ? avg >= target
-                ? "objectif atteint"
-                : "écart : " + (target - avg).toFixed(1) + " pt"
-              : "ajoute tes premières notes"}
-          </div>
-        </section>
-
-        <div className="academic-center-stack">
-          <section className="neo-panel">
-            <div className="panel-head">
-              <span className="label">SEMAINE</span>
-              <Link href="/academic/calendar">agenda</Link>
+          </Link>
+          <Link href="/academic/tasks" className="academic-kpi">
+            <div
+              className="mini-donut"
+              style={{ "--p": taskPct } as CSSProperties}
+            >
+              <span />
             </div>
-            <div className="academic-week-strip">
-              {week.map((d, i) => {
-                const n = state.tasks.filter(
-                  (t) =>
-                    t.status !== "done" &&
-                    t.dueAt &&
-                    new Date(t.dueAt).toDateString() === d.toDateString(),
-                ).length;
-                return (
-                  <div key={i} className={i === 0 ? "today" : ""}>
-                    <small>
-                      {new Intl.DateTimeFormat("fr-FR", {
-                        weekday: "short",
-                      }).format(d)}
-                    </small>
-                    <strong>{d.getDate()}</strong>
-                    <span>
-                      {n
-                        ? Array.from({ length: Math.min(3, n) }, (_, x) => (
-                            <i key={x} />
-                          ))
-                        : null}
-                    </span>
-                  </div>
-                );
-              })}
+            <div>
+              <small>TÂCHES</small>
+              <strong>{open.length}</strong>
+              <p>{late ? late + " en retard" : "aucun retard"}</p>
             </div>
-          </section>
-
-          <section className="neo-panel grow-panel">
-            <div className="panel-head">
-              <span className="label">MATIÈRES À SURVEILLER</span>
-              <Link href="/academic/subjects">matières</Link>
+          </Link>
+          <Link href="/academic/errors" className="academic-kpi">
+            <div
+              className="mini-donut"
+              style={{ "--p": Math.min(100, errorOpen * 15) } as CSSProperties}
+            >
+              <span />
             </div>
-            <div className="subject-urgency-list">
-              {subjects.length ? (
-                subjects.map(({ s, avg: a }) => (
-                  <Link
-                    href={"/subjects/" + s.id}
-                    key={s.id}
-                    className="subject-urgency-row"
-                  >
-                    <span>
-                      <strong>{s.name}</strong>
-                      <small>
-                        {
-                          state.chapters.filter((c) => c.subjectId === s.id)
-                            .length
-                        }{" "}
-                        chapitres
-                      </small>
-                    </span>
-                    <div className="spark-placeholder">
-                      <i
-                        style={{
-                          width: (a ? Math.min(100, (a / 20) * 100) : 0) + "%",
-                        }}
-                      />
-                    </div>
-                    <b>{a === null ? "—" : a.toFixed(1).replace(".0", "")}</b>
-                  </Link>
-                ))
-              ) : (
-                <p className="empty">Aucune matière.</p>
-              )}
+            <div>
+              <small>ERREURS</small>
+              <strong>{errorOpen}</strong>
+              <p>à corriger / revoir</p>
             </div>
-          </section>
+          </Link>
+          <Link href="/academic/revisions" className="academic-kpi">
+            <div
+              className="mini-donut"
+              style={{ "--p": Math.min(100, minutes / 6) } as CSSProperties}
+            >
+              <span />
+            </div>
+            <div>
+              <small>RÉVISIONS</small>
+              <strong>{Math.round(minutes / 60)} h</strong>
+              <p>{state.sessions.length} sessions</p>
+            </div>
+          </Link>
         </div>
 
-        <div className="academic-right-stack">
-          <section className="neo-panel grow-panel">
+        <div className="academic-home-grid">
+          <section className="neo-panel hero-average-panel">
             <div className="panel-head">
-              <span className="label">À FAIRE</span>
-              <Link href="/academic/tasks">matrice</Link>
+              <span className="label">MOYENNE GÉNÉRALE</span>
+              <Link href="/academic/grades">notes</Link>
             </div>
-            <div className="dashboard-task-list">
-              {priorities.length ? (
-                priorities.map((t) => (
-                  <div key={t.id} className="dashboard-task-row">
-                    <button
-                      className={
-                        "neo-check " + (t.status === "done" ? "done" : "")
-                      }
-                      onClick={() =>
-                        updateTask(t.id, {
-                          status: t.status === "done" ? "todo" : "done",
-                        })
-                      }
-                    >
-                      {t.status === "done" ? <Check size={12} /> : null}
-                    </button>
-                    <span>
-                      <strong>{t.title}</strong>
-                      <small>
-                        {t.subjectId ? subjectMap[t.subjectId] : "Général"} ·{" "}
-                        {t.durationMin} min
-                        {t.dueAt
-                          ? " · " +
-                            new Date(t.dueAt).toLocaleDateString("fr-FR", {
-                              day: "2-digit",
-                              month: "2-digit",
-                            })
-                          : ""}
-                      </small>
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="empty">Rien à faire.</p>
-              )}
+            <div
+              className="academic-hero-ring"
+              style={{ "--p": avgPct } as CSSProperties}
+            >
+              <div>
+                <strong>
+                  {avg !== null ? avg.toFixed(1).replace(".0", "") : "—"}
+                </strong>
+                <span>/ 20</span>
+              </div>
+            </div>
+            <div className="academic-target-line">
+              <span>Objectif</span>
+              <input
+                aria-label="Objectif de moyenne"
+                type="number"
+                min="0"
+                max="20"
+                step=".1"
+                defaultValue={target}
+                onBlur={(e) => setAverageGoal(Number(e.target.value) || 18)}
+              />
+            </div>
+            <div className="academic-target-status">
+              {avg
+                ? avg >= target
+                  ? "objectif atteint"
+                  : "écart : " + (target - avg).toFixed(1) + " pt"
+                : "ajoute tes premières notes"}
             </div>
           </section>
 
-          <section className="neo-panel">
-            <div className="panel-head">
-              <span className="label">BANQUE D’ERREURS</span>
-              <Link href="/academic/errors">réviser</Link>
-            </div>
-            <div className="error-mini-list">
-              {state.errors
-                .filter((e) => e.status !== "mastered")
-                .slice(0, 3)
-                .map((e) => (
-                  <div key={e.id}>
-                    <AlertTriangle size={13} />
-                    <span>{e.title}</span>
-                  </div>
-                ))}
-              {!state.errors.some((e) => e.status !== "mastered") && (
-                <p className="empty sm">Aucune erreur active.</p>
-              )}
-            </div>
-          </section>
+          <div className="academic-center-stack">
+            <section className="neo-panel">
+              <div className="panel-head">
+                <span className="label">SEMAINE</span>
+                <Link href="/academic/calendar">agenda</Link>
+              </div>
+              <div className="academic-week-strip">
+                {week.map((d, i) => {
+                  const n = state.tasks.filter(
+                    (t) =>
+                      t.status !== "done" &&
+                      t.dueAt &&
+                      new Date(t.dueAt).toDateString() === d.toDateString(),
+                  ).length;
+                  return (
+                    <div key={i} className={i === 0 ? "today" : ""}>
+                      <small>
+                        {new Intl.DateTimeFormat("fr-FR", {
+                          weekday: "short",
+                        }).format(d)}
+                      </small>
+                      <strong>{d.getDate()}</strong>
+                      <span>
+                        {n
+                          ? Array.from({ length: Math.min(3, n) }, (_, x) => (
+                              <i key={x} />
+                            ))
+                          : null}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="neo-panel grow-panel">
+              <div className="panel-head">
+                <span className="label">MATIÈRES À SURVEILLER</span>
+                <Link href="/academic/subjects">matières</Link>
+              </div>
+              <div className="subject-urgency-list">
+                {subjects.length ? (
+                  subjects.map(({ s, avg: a }) => (
+                    <Link
+                      href={"/subjects/" + s.id}
+                      key={s.id}
+                      className="subject-urgency-row"
+                    >
+                      <span>
+                        <strong>{s.name}</strong>
+                        <small>
+                          {
+                            state.chapters.filter((c) => c.subjectId === s.id)
+                              .length
+                          }{" "}
+                          chapitres
+                        </small>
+                      </span>
+                      <div className="spark-placeholder">
+                        <i
+                          style={{
+                            width:
+                              (a ? Math.min(100, (a / 20) * 100) : 0) + "%",
+                          }}
+                        />
+                      </div>
+                      <b>{a === null ? "—" : a.toFixed(1).replace(".0", "")}</b>
+                    </Link>
+                  ))
+                ) : (
+                  <p className="empty">Aucune matière.</p>
+                )}
+              </div>
+            </section>
+          </div>
+
+          <div className="academic-right-stack">
+            <section className="neo-panel grow-panel">
+              <div className="panel-head">
+                <span className="label">À FAIRE</span>
+                <Link href="/academic/tasks">matrice</Link>
+              </div>
+              <div className="dashboard-task-list">
+                {priorities.length ? (
+                  priorities.map((t) => (
+                    <div key={t.id} className="dashboard-task-row">
+                      <button
+                        className={
+                          "neo-check " + (t.status === "done" ? "done" : "")
+                        }
+                        onClick={() =>
+                          updateTask(t.id, {
+                            status: t.status === "done" ? "todo" : "done",
+                          })
+                        }
+                      >
+                        {t.status === "done" ? <Check size={12} /> : null}
+                      </button>
+                      <span>
+                        <strong>{t.title}</strong>
+                        <small>
+                          {t.subjectId ? subjectMap[t.subjectId] : "Général"} ·{" "}
+                          {t.durationMin} min
+                          {t.dueAt
+                            ? " · " +
+                              new Date(t.dueAt).toLocaleDateString("fr-FR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                              })
+                            : ""}
+                        </small>
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="empty">Rien à faire.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="neo-panel">
+              <div className="panel-head">
+                <span className="label">BANQUE D’ERREURS</span>
+                <Link href="/academic/errors">réviser</Link>
+              </div>
+              <div className="error-mini-list">
+                {state.errors
+                  .filter((e) => e.status !== "mastered")
+                  .slice(0, 3)
+                  .map((e) => (
+                    <div key={e.id}>
+                      <AlertTriangle size={13} />
+                      <span>{e.title}</span>
+                    </div>
+                  ))}
+                {!state.errors.some((e) => e.status !== "mastered") && (
+                  <p className="empty sm">Aucune erreur active.</p>
+                )}
+              </div>
+            </section>
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 }
@@ -1453,7 +1461,12 @@ export default function AcademicSectionPage() {
       content = <ErrorsPage />;
       break;
     case "revisions":
-      content = <SmartFocus />;
+      content = (
+        <>
+          <RevisionCoach />
+          <SmartFocus />
+        </>
+      );
       break;
     case "resources":
       content = <ResourcesPage />;

@@ -16,6 +16,8 @@ import {
 } from "./LifeUI";
 import { localDay, prayers, recentDays, text, reviewDue } from "@/lib/life";
 import { reviewError } from "@/lib/academic";
+import { memoryHistory } from "@/lib/progress";
+import { MemorizationPath } from "./ProgressWorkspace";
 
 function PrayerTracker() {
   const life = useLife(),
@@ -220,6 +222,23 @@ function QuranWorkspace() {
                                 ),
                                 nextReviewAt: result.nextReviewAt!,
                                 lastReviewed: new Date().toISOString(),
+                                reviewHistory: JSON.stringify(
+                                  [
+                                    ...memoryHistory(card),
+                                    {
+                                      at: new Date().toISOString(),
+                                      ratingLabel: [
+                                        "Encore",
+                                        "Difficile",
+                                        "Bien",
+                                        "Facile",
+                                      ][i],
+                                      nextReview: localDay(
+                                        new Date(result.nextReviewAt!),
+                                      ),
+                                    },
+                                  ].slice(-100),
+                                ),
                               },
                             });
                           }, "Prochaine révision enregistrée.")
@@ -311,6 +330,7 @@ function IslamOverview() {
 export function IslamWorkspace({ section = "" }: { section?: string }) {
   return (
     <LifeLayout universe="islam" section={section}>
+      {(section === "" || section === "quran") && <MemorizationPath />}
       {section === "prayers" ? (
         <PrayerTracker />
       ) : section === "quran" ? (

@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { useAuth } from "./AuthProvider";
+import { useSave } from "./SaveProvider";
 import { supabase } from "@/lib/supabase/client";
 import { pnl } from "@/lib/finance";
 export type TradeDirection = "long" | "short";
@@ -40,7 +41,7 @@ type TradingContextValue = {
     patch: { note: string; setup: string },
   ) => Promise<void>;
   removeTrade: (id: string) => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: (background?: boolean) => Promise<void>;
 };
 const Ctx = createContext<TradingContextValue | null>(null),
   LOCAL_KEY = "project-white-trading-v1";
@@ -61,6 +62,7 @@ function fromDb(x: any): Trade {
 }
 export const tradePnl = pnl;
 export function TradingProvider({ children }: { children: React.ReactNode }) {
+  const saving = useSave();
   const { user, configured, loading: authLoading } = useAuth();
   const demoMode = !configured;
   const [trades, setTrades] = useState<Trade[]>([]),
@@ -75,45 +77,48 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     records.current = next;
     setTrades(next);
   }
-  const refresh = useCallback(async () => {
-    if (authLoading) return;
-    const current = owner,
-      turn = ++ticket.current;
-    setLoading(true);
-    setError("");
-    try {
-      let next: Trade[] = [];
-      if (!configured) {
-        const raw = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
-        if (!Array.isArray(raw)) throw new Error();
-        next = raw;
-      } else if (supabase && user) {
-        let offset = 0;
-        while (true) {
-          const { data, error: dbError } = await supabase
-            .from("trades")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("opened_at", { ascending: false })
-            .order("id")
-            .range(offset, offset + 999);
-          if (dbError) throw dbError;
-          next.push(...(data || []).map(fromDb));
-          if (!data || data.length < 1000) break;
-          offset += 1000;
+  const refresh = useCallback(
+    async (background = false) => {
+      if (authLoading) return;
+      const current = owner,
+        turn = ++ticket.current;
+      if (!background) setLoading(true);
+      setError("");
+      try {
+        let next: Trade[] = [];
+        if (!configured) {
+          const raw = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
+          if (!Array.isArray(raw)) throw new Error();
+          next = raw;
+        } else if (supabase && user) {
+          let offset = 0;
+          while (true) {
+            const { data, error: dbError } = await supabase
+              .from("trades")
+              .select("*")
+              .eq("user_id", user.id)
+              .order("opened_at", { ascending: false })
+              .order("id")
+              .range(offset, offset + 999);
+            if (dbError) throw dbError;
+            next.push(...(data || []).map(fromDb));
+            if (!data || data.length < 1000) break;
+            offset += 1000;
+          }
         }
+        if (scope.current === current && ticket.current === turn) replace(next);
+      } catch {
+        if (scope.current === current && ticket.current === turn) {
+          replace([]);
+          setError("Chargement du journal impossible. Réessaie.");
+        }
+      } finally {
+        if (scope.current === current && ticket.current === turn)
+          setLoading(false);
       }
-      if (scope.current === current && ticket.current === turn) replace(next);
-    } catch {
-      if (scope.current === current && ticket.current === turn) {
-        replace([]);
-        setError("Chargement du journal impossible. Réessaie.");
-      }
-    } finally {
-      if (scope.current === current && ticket.current === turn)
-        setLoading(false);
-    }
-  }, [authLoading, configured, owner, user]);
+    },
+    [authLoading, configured, owner, user],
+  );
   useEffect(() => {
     replace([]);
     void refresh();
@@ -247,10 +252,56 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         loading,
         error,
         demoMode,
-        addTrade,
-        closeTrade,
-        updateTrade,
-        removeTrade,
+        addTrade: (input) =>
+          saving.run("Ajout de trade", () => addTrade(input)),
+        closeTrade: (id, exit) => {
+          const before = records.current.find((t) => t.id === id);
+          return saving.run(
+            "Clôture du journal",
+            () => closeTrade(id, exit),
+            async () => {
+              if (!before || scope.current !== owner)
+                throw Error("Le compte a changé.");
+              if (!demoMode && supabase && user) {
+                const { error } = await supabase
+                  .from("trades")
+                  .update({
+                    exit: before.exit,
+                    status: before.status,
+                    closed_at: before.closedAt,
+                  })
+                  .eq("id", id)
+                  .eq("user_id", user.id)
+                  .eq("exit", exit)
+                  .eq("status", "closed")
+                  .select("id")
+                  .single();
+                if (error)
+                  throw Error(
+                    "La position a changé ou la connexion est indisponible.",
+                  );
+              }
+              commit(records.current.map((t) => (t.id === id ? before : t)));
+            },
+          );
+        },
+        updateTrade: (id, patch) => {
+          const before = records.current.find((t) => t.id === id);
+          return saving.run(
+            "Bilan du trade",
+            () => updateTrade(id, patch),
+            async () => {
+              if (!before || scope.current !== owner)
+                throw Error("Le compte a changé.");
+              await updateTrade(id, {
+                note: before.note || "",
+                setup: before.setup || "",
+              });
+            },
+          );
+        },
+        removeTrade: (id) =>
+          saving.run("Suppression du trade", () => removeTrade(id)),
         refresh,
       }}
     >

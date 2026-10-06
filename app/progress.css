@@ -1,0 +1,116 @@
+.v4-global-nav,
+.v4-save,
+.v4-sync {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0 0 18px;
+}
+.v4-save,
+.v4-sync {
+  font-size: 12px;
+  color: var(--os-text-muted);
+}
+.v4-save small,
+.v4-sync p {
+  flex-basis: 100%;
+  color: var(--os-text);
+}
+.v4-bars {
+  display: flex;
+  gap: 4px;
+  height: 180px;
+  padding: 20px 8px 24px;
+  margin: 20px 0;
+  background: var(--os-panel);
+  border-radius: 18px;
+}
+.v4-bars > div {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  flex-direction: column;
+  position: relative;
+  height: 100%;
+}
+.v4-bars span {
+  display: block;
+  background: var(--os-gold, #b99e75);
+  border-radius: 6px 6px 0 0;
+  min-width: 2px;
+}
+.v4-bars small {
+  position: absolute;
+  bottom: -20px;
+  font-size: 10px;
+}
+.v4-table-scroll {
+  overflow-x: auto;
+}
+.v4-table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.v4-table-scroll td,
+.v4-table-scroll th {
+  text-align: left;
+  padding: 8px;
+}
+.v4-question {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--os-border);
+}
+.v4-question label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.v4-question textarea {
+  width: 100%;
+  min-height: 100px;
+}
+.v4-question input[type="radio"] {
+  width: auto;
+}
+.v4-trade-review {
+  padding: 10px 0 24px;
+  border-bottom: 1px solid var(--os-border);
+  margin-bottom: 20px;
+}
+.life-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.v4-global-nav .neo-pill {
+  font-size: 12px;
+}
+.v4-sync .neo-pill {
+  font-size: 11px;
+}
+.v4-question,
+.v4-trade-review {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .life-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .v4-bars {
+    gap: 2px;
+  }
+  .v4-global-nav {
+    gap: 8px;
+  }
+  .v4-global-nav .neo-pill {
+    padding: 10px 12px;
+  }
+  .v4-question label {
+    align-items: flex-start;
+  }
+}

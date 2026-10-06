@@ -34,6 +34,8 @@ import { useTheme } from "./ThemeProvider";
 import { V3Dialog } from "./V3Dialog";
 import { Guide } from "./Guide";
 import { Inbox } from "./AcademicV3";
+import { SaveStatus } from "./SaveProvider";
+import { SyncStatus } from "./GlobalWorkspace";
 import { isTyping } from "@/lib/shortcuts";
 import {
   universeDescriptions,
@@ -399,6 +401,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="os-content">
+          <div className="v4-global-nav">
+            <Link className="neo-pill" href="/today">
+              Aujourd’hui · Tous les univers
+            </Link>
+            <Link className="neo-pill" href="/search">
+              Recherche globale
+            </Link>
+          </div>
+          <SaveStatus />
+          <SyncStatus />
           {universe === "academic" && projectError && (
             <p role="alert">
               {projectError}{" "}
@@ -481,6 +493,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="v3-command">
           {[
             ...currentNav,
+            { href: "/today", label: "Aujourd’hui · Tous les univers" },
+            { href: "/search", label: "Recherche globale" },
             ...universes.map((u) => ({
               href: u.href,
               label: "Univers " + u.label,

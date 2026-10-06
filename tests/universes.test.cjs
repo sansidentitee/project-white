@@ -22,6 +22,162 @@ const {
   safeUrl,
 } = require("../lib/life.ts");
 const { tradingSummary, positionSize } = require("../lib/finance.ts");
+const { writeLocalIfChanged } = require("../lib/localStore.ts");
+test("Refreshing unchanged local data does not broadcast another storage write", () => {
+  let raw = null,
+    writes = 0;
+  const storage = {
+    getItem: () => raw,
+    setItem: (_, v) => {
+      writes++;
+      raw = v;
+    },
+  };
+  const data = { tasks: [{ id: "t", title: "Révision" }] };
+  assert.equal(writeLocalIfChanged(storage, "key", data), true);
+  assert.equal(writeLocalIfChanged(storage, "key", data), false);
+  assert.equal(writes, 1);
+  assert.equal(writeLocalIfChanged(storage, "key", { tasks: [] }), true);
+  assert.equal(writes, 2);
+});
+const {
+  revisionPlan,
+  resultInR,
+  healthWindow,
+  habitWeek,
+  weeklyMemory,
+  searchIndex,
+  findItems,
+  memoryHistory,
+} = require("../lib/progress.ts");
+
+test("Revision suggestions prioritize imminent exams and recurring chapter errors", () => {
+  const state = {
+    chapters: [
+      { id: "a", subjectId: "s", title: "A", status: "solid" },
+      { id: "b", subjectId: "other", title: "B", status: "learning" },
+    ],
+    errors: [
+      {
+        chapterId: "a",
+        status: "review",
+        lapses: 3,
+        nextReviewAt: "2026-10-05T08:00:00Z",
+      },
+    ],
+    tasks: [
+      {
+        id: "exam",
+        subjectId: "s",
+        kind: "exam",
+        status: "todo",
+        dueAt: "2026-10-09T08:00:00Z",
+      },
+    ],
+  };
+  const plan = revisionPlan(state, new Date("2026-10-06T08:00:00Z"));
+  assert.equal(plan[0].chapter.id, "a");
+  assert.equal(plan[0].due.length, 1);
+  assert.equal(plan[0].exam.id, "exam");
+});
+test("R uses initial risk, trade direction and fees and rejects missing risk", () => {
+  const trade = {
+    status: "closed",
+    entry: 100,
+    exit: 110,
+    quantity: 2,
+    direction: "long",
+  };
+  assert.equal(resultInR(trade, 5, 2), 3.6);
+  assert.equal(resultInR({ ...trade, direction: "short" }, 5), -4);
+  assert.equal(resultInR(trade, null), null);
+  assert.equal(resultInR(trade, 0), null);
+  assert.equal(resultInR({ ...trade, status: "open" }, 5), null);
+});
+test("30-day health window preserves unknown days and excludes other universes", () => {
+  const rows = healthWindow(
+    [
+      entry("health-day", { day: "2026-10-05", data: { sleep: 0 } }),
+      entry("health-day", {
+        universe: "finance",
+        day: "2026-10-05",
+        data: { sleep: 9 },
+      }),
+    ],
+    "2026-10-06",
+  );
+  assert.equal(rows.length, 30);
+  assert.equal(rows.at(-1).sleep, null);
+  assert.equal(rows.at(-2).sleep, 0);
+  assert.deepEqual(habitWeek([], "2026-10-06"), []);
+});
+test("Global search is accent insensitive and does not index private attachment payloads", () => {
+  const state = {
+    subjects: [],
+    tasks: [],
+    chapters: [],
+    grades: [],
+    errors: [],
+    goals: [],
+    resources: [],
+  };
+  const index = searchIndex(
+    state,
+    [
+      entry("resource", {
+        title: "Révision",
+        data: {
+          notes: "Méthode utile",
+          fileData: "SECRETBASE64",
+          path: "SECRETPATH",
+        },
+      }),
+    ],
+    [],
+  );
+  assert.equal(findItems(index, "revision methode").length, 1);
+  assert.equal(findItems(index, "SECRETBASE64").length, 0);
+  assert.equal(findItems(index, "SECRETPATH").length, 0);
+  assert.equal(findItems(index, "").length, 0);
+});
+test("Memorization history tolerates corrupt legacy data and counts distinct passages", () => {
+  const card = entry("memorization", {
+    universe: "islam",
+    data: { lastReviewed: "2026-10-05T12:00:00Z", reviewHistory: "not-json" },
+  });
+  assert.deepEqual(memoryHistory(card), []);
+  assert.equal(weeklyMemory([card], "2026-10-06"), 1);
+  assert.equal(weeklyMemory([{ ...card, archived: true }], "2026-10-06"), 0);
+});
+test("Quiz and trade review validate answer choices, risk and fees", () => {
+  const base = {
+    universe: "finance",
+    kind: "reflection",
+    title: "Quiz",
+    day: "2026-10-06",
+  };
+  assert.throws(() =>
+    validateLife({
+      ...base,
+      data: { studioType: "quiz", answerKey: "B", optionA: "A" },
+    }),
+  );
+  assert.doesNotThrow(() =>
+    validateLife({
+      ...base,
+      data: { studioType: "quiz", answerKey: "B", optionA: "A", optionB: "B" },
+    }),
+  );
+  assert.throws(() =>
+    validateLife({ ...base, data: { type: "trade-review", risk: 0, fees: 0 } }),
+  );
+  assert.throws(() =>
+    validateLife({
+      ...base,
+      data: { type: "trade-review", risk: 10, fees: -1 },
+    }),
+  );
+});
 const entry = (kind, patch = {}) => ({
   id: "x",
   universe: "health",

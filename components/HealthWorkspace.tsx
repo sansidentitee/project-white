@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useLife } from "./LifeProvider";
+import { HealthTrends } from "./ProgressWorkspace";
 import {
   ActionFeedback,
   EntryManager,
@@ -273,6 +274,9 @@ function HealthOverview() {
 export function HealthWorkspace({ section = "" }: { section?: string }) {
   return (
     <LifeLayout universe="health" section={section}>
+      {(section === "" || section === "daily" || section === "habits") && (
+        <HealthTrends />
+      )}
       {section === "daily" ? (
         <DailyHealth />
       ) : section === "activity" ? (
