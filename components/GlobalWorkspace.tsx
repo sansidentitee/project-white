@@ -6,6 +6,7 @@ import { useProject } from "./ProjectProvider";
 import { useLife } from "./LifeProvider";
 import { useTrading } from "./TradingProvider";
 import { useSave } from "./SaveProvider";
+import { useComfortFilter } from "./ComfortProvider";
 import { PageFrame } from "./PageFrame";
 import { LifePanel, LifeMetric, LifeEmpty } from "./LifeUI";
 import { localDay, prayers, reviewDue } from "@/lib/life";
@@ -128,28 +129,32 @@ export function GlobalToday() {
             </p>
           </div>
         </div>
-        <div className="life-metrics">
-          <LifeMetric
-            label="Priorités études"
-            value={project.loading ? "…" : tasks.length}
-          />
-          <LifeMetric
-            label="Prières renseignées"
-            value={
-              life.loading
-                ? "…"
-                : prayers.filter((p) => prayer?.data[p] === true).length + "/5"
-            }
-          />
-          <LifeMetric
-            label="Sessions trading / formation"
-            value={life.loading ? "…" : plans.length}
-          />
-          <LifeMetric
-            label="Habitudes du jour"
-            value={life.loading ? "…" : `${done.length}/${habits.length}`}
-          />
-        </div>
+        <details className="comfort-overview">
+          <summary>Voir les indicateurs du jour</summary>
+          <div className="life-metrics">
+            <LifeMetric
+              label="Priorités études"
+              value={project.loading ? "…" : tasks.length}
+            />
+            <LifeMetric
+              label="Prières renseignées"
+              value={
+                life.loading
+                  ? "…"
+                  : prayers.filter((p) => prayer?.data[p] === true).length +
+                    "/5"
+              }
+            />
+            <LifeMetric
+              label="Sessions trading / formation"
+              value={life.loading ? "…" : plans.length}
+            />
+            <LifeMetric
+              label="Habitudes du jour"
+              value={life.loading ? "…" : `${done.length}/${habits.length}`}
+            />
+          </div>
+        </details>
         <div className="life-grid">
           <LifePanel title="Académie · Mes trois priorités">
             {project.error ? (
@@ -238,8 +243,15 @@ export function GlobalSearch() {
     project = useProject(),
     life = useLife(),
     trading = useTrading();
-  const [query, setQuery] = useState(params.get("q") || ""),
-    [world, setWorld] = useState("all");
+  const [query, setQuery] = useComfortFilter(
+      "global-search-query",
+      params.get("q") || "",
+    ),
+    [world, setWorld] = useComfortFilter("global-search-universe", "all");
+  const requestedQuery = params.get("q");
+  useEffect(() => {
+    if (requestedQuery !== null) setQuery(requestedQuery);
+  }, [requestedQuery]);
   const index = useMemo(
       () => searchIndex(project.state, life.entries, trading.trades),
       [project.state, life.entries, trading.trades],

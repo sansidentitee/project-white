@@ -93,7 +93,7 @@ export function SaveStatus() {
             ? "Échec de sauvegarde"
             : save.lastSaved
               ? `Enregistré ${configured ? "sur ton compte" : "sur cet appareil"} à ${new Date(save.lastSaved).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
-              : "Prêt à enregistrer"}
+              : ""}
       </span>
       {save.undo && (
         <button

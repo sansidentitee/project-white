@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
-import { FormEvent, ReactNode, useRef, useState } from "react";
+import { FormEvent, ReactNode, useRef, useState, useEffect } from "react";
 import { useLife } from "./LifeProvider";
 import { PageFrame } from "./PageFrame";
 import { V3Dialog } from "./V3Dialog";
+import { useComfortFilter } from "./ComfortProvider";
 import {
   LifeData,
   LifeEntry,
@@ -24,6 +25,11 @@ export function useLifeAction() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const lock = useRef(false);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 6000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   async function run(action: () => Promise<unknown>, success = "Enregistré.") {
     if (lock.current) return false;
     lock.current = true;
@@ -138,17 +144,20 @@ export function LifeLayout({
             {life.local ? "Sur cet appareil" : "Compte personnel"}
           </span>
         </div>
-        <nav className="life-tabs" aria-label={"Sections " + meta.name}>
-          {universeSections[universe].map((s) => (
-            <Link
-              key={s.slug}
-              href={universeHref(universe, s.slug)}
-              aria-current={section === s.slug ? "page" : undefined}
-            >
-              {s.label}
-            </Link>
-          ))}
-        </nav>
+        <details className="comfort-section-tools">
+          <summary>Explorer cet espace</summary>
+          <nav className="life-tabs" aria-label={"Sections " + meta.name}>
+            {universeSections[universe].map((s) => (
+              <Link
+                key={s.slug}
+                href={universeHref(universe, s.slug)}
+                aria-current={section === s.slug ? "page" : undefined}
+              >
+                {s.label}
+              </Link>
+            ))}
+          </nav>
+        </details>
         {life.loading ? (
           <LifeEmpty>Chargement de ton espace…</LifeEmpty>
         ) : life.error ? (
@@ -263,6 +272,20 @@ export function EntryManager({
     action = useLifeAction();
   const [editing, setEditing] = useState<LifeEntry | null>(null),
     [open, setOpen] = useState(false);
+  const [query, setQuery] = useComfortFilter(
+    `entries:${universe}:${kind}:${title}`,
+  );
+  const [lastAdded, setLastAdded] = useState("");
+  const addLabel: Record<string, string> = {
+    quran: "Ajouter une session",
+    memorization: "Ajouter un passage",
+    learning: "Ajouter un cours",
+    goal: "Ajouter un objectif",
+    workout: "Ajouter une séance",
+    habit: "Ajouter une habitude",
+    reflection: "Ajouter une note",
+    plan: "Planifier une session",
+  };
   const entries =
     provided ||
     life.entries
@@ -271,8 +294,15 @@ export function EntryManager({
         (a, b) =>
           b.day.localeCompare(a.day) || b.createdAt.localeCompare(a.createdAt),
       );
+  const visibleEntries = entries.filter((e) =>
+    e.title.toLocaleLowerCase("fr").includes(query.toLocaleLowerCase("fr")),
+  );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
+    const keepAdding =
+      (event.nativeEvent as SubmitEvent).submitter?.getAttribute("name") ===
+      "continue";
     const form = new FormData(event.currentTarget);
     const data: LifeData = { ...(editing?.data || {}) };
     fields.forEach((f) => {
@@ -298,7 +328,14 @@ export function EntryManager({
         }),
       )
     ) {
-      setOpen(false);
+      setLastAdded(String(form.get("title")));
+      if (!keepAdding) setOpen(false);
+      else {
+        formElement.reset();
+        formElement
+          .querySelector<HTMLInputElement>('input[name="title"]')
+          ?.focus();
+      }
       setEditing(null);
     }
   }
@@ -312,14 +349,38 @@ export function EntryManager({
             setOpen(true);
           }}
         >
-          Ajouter
+          {addLabel[kind] || "Ajouter un élément"}
         </button>
         <small>
           {entries.length} élément{entries.length > 1 ? "s" : ""}
         </small>
       </div>
+      {entries.length > 0 && (
+        <label className="comfort-search">
+          Rechercher dans cette liste
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Un titre…"
+          />
+        </label>
+      )}
+      {lastAdded && !open && (
+        <p className="comfort-confirmation" role="status">
+          {lastAdded} est enregistré.{" "}
+          <button
+            onClick={() => {
+              setEditing(null);
+              setOpen(true);
+            }}
+          >
+            Ajouter encore
+          </button>
+        </p>
+      )}
       <div className="life-list">
-        {entries.map((entry) => (
+        {visibleEntries.map((entry) => (
           <article className="life-entry" key={entry.id}>
             <div>
               <h3>{entry.title}</h3>
@@ -392,6 +453,12 @@ export function EntryManager({
           </article>
         ))}
       </div>
+      {!!entries.length && !visibleEntries.length && (
+        <p role="status">
+          Aucun résultat.{" "}
+          <button onClick={() => setQuery("")}>Effacer le filtre</button>
+        </p>
+      )}
       {!entries.length && (
         <LifeEmpty>
           Commence avec un premier élément. Il sera conservé après rechargement.
@@ -418,15 +485,18 @@ export function EntryManager({
               defaultValue={editing?.title || ""}
             />
           </label>
-          <label>
-            {dayLabel}
-            <input
-              name="day"
-              type="date"
-              required
-              defaultValue={editing?.day || localDay()}
-            />
-          </label>
+          <details className="comfort-details">
+            <summary>Date et détails facultatifs</summary>
+            <label>
+              {dayLabel}
+              <input
+                name="day"
+                type="date"
+                required
+                defaultValue={editing?.day || localDay()}
+              />
+            </label>
+          </details>
           {valueLabel && (
             <label>
               {valueLabel}
@@ -436,59 +506,87 @@ export function EntryManager({
                 step="any"
                 min={0}
                 required
-                defaultValue={editing?.value ?? ""}
+                defaultValue={editing?.value ?? 25}
               />
             </label>
           )}
-          {fields.map((field) => (
-            <label key={field.key}>
-              {field.label}
-              {field.type === "textarea" ? (
-                <textarea
-                  name={field.key}
-                  rows={4}
-                  maxLength={10000}
-                  defaultValue={String(
-                    editing?.data[field.key] ?? field.defaultValue ?? "",
-                  )}
-                />
-              ) : field.type === "select" ? (
-                <select
-                  name={field.key}
-                  defaultValue={String(
-                    editing?.data[field.key] ??
-                      field.defaultValue ??
-                      field.options?.[0]?.value ??
-                      "",
-                  )}
-                >
-                  {field.options?.map((o) => (
-                    <option value={o.value} key={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  name={field.key}
-                  type={field.type || "text"}
-                  min={field.min}
-                  max={field.max}
-                  step={field.step ?? "any"}
-                  required={field.required}
-                  maxLength={
-                    field.type === "text" || !field.type ? 1000 : undefined
-                  }
-                  defaultValue={String(
-                    editing?.data[field.key] ?? field.defaultValue ?? "",
-                  )}
-                />
-              )}
-            </label>
+          {[true, false].map((essential) => (
+            <details
+              key={String(essential)}
+              open={essential ? true : undefined}
+              className={essential ? "comfort-essential" : "comfort-details"}
+            >
+              <summary>
+                {essential
+                  ? "Informations nécessaires"
+                  : "Ajouter des détails facultatifs"}
+              </summary>
+              {fields
+                .filter((f) => !!f.required === essential)
+                .map((field) => (
+                  <label key={field.key}>
+                    {field.label}
+                    {field.type === "textarea" ? (
+                      <textarea
+                        name={field.key}
+                        rows={4}
+                        maxLength={10000}
+                        defaultValue={String(
+                          editing?.data[field.key] ?? field.defaultValue ?? "",
+                        )}
+                      />
+                    ) : field.type === "select" ? (
+                      <select
+                        name={field.key}
+                        defaultValue={String(
+                          editing?.data[field.key] ??
+                            field.defaultValue ??
+                            field.options?.[0]?.value ??
+                            "",
+                        )}
+                      >
+                        {field.options?.map((o) => (
+                          <option value={o.value} key={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        name={field.key}
+                        type={field.type || "text"}
+                        min={field.min}
+                        max={field.max}
+                        step={field.step ?? "any"}
+                        required={field.required}
+                        maxLength={
+                          field.type === "text" || !field.type
+                            ? 1000
+                            : undefined
+                        }
+                        defaultValue={String(
+                          editing?.data[field.key] ?? field.defaultValue ?? "",
+                        )}
+                      />
+                    )}
+                  </label>
+                ))}
+            </details>
           ))}
-          <button className="neo-pill primary" disabled={action.busy}>
-            {action.busy ? "Enregistrement…" : "Enregistrer"}
-          </button>
+          <div className="comfort-form-actions">
+            <button className="neo-pill primary" disabled={action.busy}>
+              {action.busy ? "Enregistrement…" : "Enregistrer"}
+            </button>
+            {!editing && (
+              <button
+                name="continue"
+                className="neo-pill"
+                disabled={action.busy}
+              >
+                Enregistrer et ajouter
+              </button>
+            )}
+          </div>
           <ActionFeedback action={action} />
         </form>
       </V3Dialog>

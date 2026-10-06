@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
@@ -36,6 +36,8 @@ import { Guide } from "./Guide";
 import { Inbox } from "./AcademicV3";
 import { SaveStatus } from "./SaveProvider";
 import { SyncStatus } from "./GlobalWorkspace";
+import { NextAction } from "./NextAction";
+import { comfortHomes } from "@/lib/comfort";
 import { isTyping } from "@/lib/shortcuts";
 import {
   universeDescriptions,
@@ -84,6 +86,10 @@ const academicNav = [
 ];
 
 function universeFromPath(path: string): Universe {
+  const workspace = path.match(
+    /^\/workspace\/(academic|islam|finance|health)\//,
+  );
+  if (workspace) return workspace[1] as Universe;
   if (path.startsWith("/islam")) return "islam";
   if (path.startsWith("/finance") || path.startsWith("/trading"))
     return "finance";
@@ -248,16 +254,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (loading || (configured && !user))
     return <div className="os-loader">Project White</div>;
 
-  function submitSearch(e: FormEvent) {
-    e.preventDefault();
-    if (universe !== "academic") return;
-    router.push(
-      query.trim()
-        ? "/search?q=" + encodeURIComponent(query.trim())
-        : "/academic/dashboard",
-    );
-  }
-
   return (
     <div className="os-shell universe-shell">
       <aside className="os-sidebar universe-sidebar">
@@ -285,7 +281,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className="os-nav academic-side-nav"
           aria-label={universeMeta.label}
         >
-          {currentNav.map(({ href, label, icon: Icon }) => {
+          {[
+            { href: comfortHomes[universe], label: "Aujourd’hui", icon: House },
+            {
+              href: `/workspace/${universe}/items`,
+              label: "Mes éléments",
+              icon: FolderOpen,
+            },
+            {
+              href: `/workspace/${universe}/progress`,
+              label: "Progression",
+              icon: ChartNoAxesColumnIncreasing,
+            },
+          ].map(({ href, label, icon: Icon }) => {
             const active = path === href;
             return (
               <Link
@@ -301,6 +309,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          <details className="comfort-more" key={universe}>
+            <summary>Plus d’outils</summary>
+            <div>
+              {currentNav
+                .filter((n) => n.href !== comfortHomes[universe])
+                .map((n) => (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    aria-current={path === n.href ? "page" : undefined}
+                  >
+                    {n.label}
+                  </Link>
+                ))}
+            </div>
+          </details>
         </nav>
 
         <div className="os-sidebar-bottom">
@@ -371,20 +395,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Search size={18} />
             </button>
             {universe === "academic" && (
-              <form
-                className="os-search compact-search"
-                onSubmit={submitSearch}
-              >
-                <Search size={16} />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Rechercher..."
-                  aria-label="Rechercher"
-                />
-              </form>
-            )}
-            {universe === "academic" && (
               <button
                 className="os-icon-button os-bell"
                 aria-label="Notifications"
@@ -401,25 +411,69 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="os-content">
-          <div className="v4-global-nav">
-            <Link className="neo-pill" href="/today">
-              Aujourd’hui · Tous les univers
+          <nav
+            className="comfort-mobile-nav"
+            aria-label="Navigation principale"
+          >
+            <Link
+              href={comfortHomes[universe]}
+              aria-current={
+                path === comfortHomes[universe] ? "page" : undefined
+              }
+            >
+              Aujourd’hui
             </Link>
-            <Link className="neo-pill" href="/search">
-              Recherche globale
+            <Link
+              href={`/workspace/${universe}/items`}
+              aria-current={path.endsWith("/items") ? "page" : undefined}
+            >
+              Mes éléments
             </Link>
+            <Link
+              href={`/workspace/${universe}/progress`}
+              aria-current={path.endsWith("/progress") ? "page" : undefined}
+            >
+              Progression
+            </Link>
+          </nav>
+          <div className="comfort-utilities">
+            <Link href="/today">Tous les univers</Link>
+            <Link href="/search">Rechercher</Link>
+            <details className="comfort-mobile-tools">
+              <summary>Plus d’outils</summary>
+              <div className="comfort-tool-list">
+                {currentNav.map((n) => (
+                  <Link key={n.href} href={n.href}>
+                    {n.label}
+                  </Link>
+                ))}
+              </div>
+            </details>
+            <details>
+              <summary>Sauvegarde et synchronisation</summary>
+              <SyncStatus />
+            </details>
           </div>
-          <SaveStatus />
-          <SyncStatus />
           {universe === "academic" && projectError && (
             <p role="alert">
               {projectError}{" "}
               <button onClick={() => void refresh()}>Réessayer</button>
             </p>
           )}
-          <div key={path} className="v3-enter">
-            {children}
+          <div className="comfort-page">
+            {(path === comfortHomes[universe] || path === "/today") && (
+              <NextAction universe={universe} global={path === "/today"} />
+            )}
+            {path === comfortHomes[universe] ? (
+              <details className="comfort-overview">
+                <summary>Voir mon aperçu et mes statistiques</summary>
+                {children}
+              </details>
+            ) : (
+              children
+            )}
           </div>
+          <SaveStatus />
         </main>
         {universe === "academic" && (
           <button
@@ -427,7 +481,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-label="Ajouter"
             onClick={() => setQuick(true)}
           >
-            <Plus size={22} />
+            <Plus size={18} />
+            <span>Ajouter une tâche</span>
           </button>
         )}
       </section>
@@ -442,6 +497,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <QuickAddModal
         open={quick}
         initialMode={quickMode}
+        initialSubjectId={
+          path.startsWith("/subjects/") ? path.split("/")[2] : undefined
+        }
         onClose={() => setQuick(false)}
       />
       <V3Dialog

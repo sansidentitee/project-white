@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useLife } from "./LifeProvider";
 import { HealthTrends } from "./ProgressWorkspace";
 import {
@@ -37,6 +37,7 @@ function DailyHealth() {
     action = useLifeAction();
   const [day, setDay] = useState(localDay()),
     [values, setValues] = useState<Record<string, string>>({});
+  const dirty = useRef(false);
   const entry = life.entries.find(
     (e) =>
       e.universe === "health" &&
@@ -45,6 +46,7 @@ function DailyHealth() {
       !e.archived,
   );
   useEffect(() => {
+    if (dirty.current) return;
     setValues(
       Object.fromEntries([
         ...dailyFields.map((f) => [
@@ -61,7 +63,7 @@ function DailyHealth() {
     dailyFields.forEach((f) => {
       data[f.key] = values[f.key]?.trim() ? Number(values[f.key]) : null;
     });
-    await action.run(() =>
+    const saved = await action.run(() =>
       life.save({
         id: entry?.id,
         universe: "health",
@@ -72,6 +74,7 @@ function DailyHealth() {
         data,
       }),
     );
+    if (saved) dirty.current = false;
   }
   return (
     <LifePanel title="Mon bilan quotidien">
@@ -83,7 +86,10 @@ function DailyHealth() {
             required
             max={localDay()}
             value={day}
-            onChange={(e) => setDay(e.target.value)}
+            onChange={(e) => {
+              dirty.current = false;
+              setDay(e.target.value);
+            }}
           />
         </label>
         <div className="life-form-grid">
@@ -96,9 +102,10 @@ function DailyHealth() {
                 max={f.max}
                 step={f.step}
                 value={values[f.key] || ""}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, [f.key]: e.target.value }))
-                }
+                onChange={(e) => {
+                  dirty.current = true;
+                  setValues((v) => ({ ...v, [f.key]: e.target.value }));
+                }}
                 placeholder="Non renseigné"
               />
             </label>
@@ -110,9 +117,10 @@ function DailyHealth() {
             rows={3}
             maxLength={10000}
             value={values.notes || ""}
-            onChange={(e) =>
-              setValues((v) => ({ ...v, notes: e.target.value }))
-            }
+            onChange={(e) => {
+              dirty.current = true;
+              setValues((v) => ({ ...v, notes: e.target.value }));
+            }}
           />
         </label>
         <button className="neo-pill primary" disabled={action.busy}>

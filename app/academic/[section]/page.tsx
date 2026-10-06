@@ -1436,6 +1436,9 @@ export default function AcademicSectionPage() {
   const params = useParams<{ section: string }>();
   let content: React.ReactNode;
   switch (params.section) {
+    case "review":
+      content = <SmartDashboard only="review" />;
+      break;
     case "inbox":
       return (
         <PageFrame>
