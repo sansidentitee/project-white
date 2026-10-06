@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLife } from "./LifeProvider";
 import { LearningStudio } from "./ProgressWorkspace";
 import { TradeReview, TradeQuality } from "./TradeReview";
+import { useComfortFilter } from "./ComfortProvider";
 import { useTrading, Trade } from "./TradingProvider";
 import {
   ActionFeedback,
@@ -66,7 +67,7 @@ function TradeJournalEntry({ trade }: { trade: Trade }) {
 }
 function FinanceJournal() {
   const { trades, loading, error, refresh } = useTrading();
-  const [asset, setAsset] = useState("all");
+  const [asset, setAsset] = useComfortFilter("finance-journal-asset", "all");
   const assets = Array.from(new Set(trades.map((t) => t.asset)));
   return (
     <>
@@ -154,7 +155,7 @@ function EquityCurve({
 }
 function TradingAnalytics() {
   const { trades, loading, error, refresh } = useTrading();
-  const [asset, setAsset] = useState("all");
+  const [asset, setAsset] = useComfortFilter("finance-analyses-asset", "all");
   const filtered = trades.filter((t) => asset === "all" || t.asset === asset),
     stats = tradingSummary(filtered);
   return (

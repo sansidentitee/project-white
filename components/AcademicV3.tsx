@@ -101,7 +101,7 @@ const widgetLabels = {
   risk: "Risque académique",
   review: "Weekly Review",
 };
-export function SmartDashboard() {
+export function SmartDashboard({ only }: { only?: string } = {}) {
   const { state, saveAcademicPreferences } = useProject();
   const [customize, setCustomize] = useState(false);
   const [error, setError] = useState("");
@@ -234,10 +234,12 @@ export function SmartDashboard() {
   return (
     <section className="section-space">
       <div className="panel-head">
-        <h2>Accueil intelligent</h2>
-        <button className="neo-pill" onClick={() => setCustomize((v) => !v)}>
-          Personnaliser
-        </button>
+        <h2>{only === "review" ? "Bilan de la semaine" : "Mon aperçu"}</h2>
+        {!only && (
+          <button className="neo-pill" onClick={() => setCustomize((v) => !v)}>
+            Personnaliser
+          </button>
+        )}
       </div>
       {error && <p role="alert">{error}</p>}
       {customize && (
@@ -289,7 +291,7 @@ export function SmartDashboard() {
         </div>
       )}
       <div className="v3-grid">
-        {widgets
+        {(only ? [only] : widgets)
           .filter((w) => panels[w])
           .map((w) => (
             <section key={w} className="neo-panel">

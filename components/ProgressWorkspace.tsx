@@ -1,4 +1,5 @@
 "use client";
+import { useComfortFilter } from "./ComfortProvider";
 import Link from "next/link";
 import { useState } from "react";
 import { useProject } from "./ProjectProvider";
@@ -230,9 +231,9 @@ export function HealthTrends() {
     today = localDay(),
     rows = healthWindow(entries, today),
     habits = habitWeek(entries, today);
-  const [metric, setMetric] = useState<
+  const [metric, setMetric] = useComfortFilter<
     "sleep" | "energy" | "water" | "mood" | "activity"
-  >("sleep");
+  >("health-trends-indicator", "sleep");
   const labels = {
       sleep: "Sommeil (h)",
       energy: "Énergie /5",
