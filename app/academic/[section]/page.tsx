@@ -37,6 +37,8 @@ import {
   Inbox,
 } from "@/components/AcademicV3";
 import { UnifiedPlanning } from "@/components/UnifiedPlanning";
+import { GradeManager } from "@/components/GradeManager";
+import { OptionalPanel } from "@/components/CalmWorkspace";
 import { SmartFocus } from "@/components/SmartFocus";
 import { RevisionCoach } from "@/components/ProgressWorkspace";
 import { reviewError, type Rating } from "@/lib/academic";
@@ -495,97 +497,43 @@ function AcademicDashboard() {
 function GradesPage() {
   const { state } = useProject();
   const avg = generalAverage(state.grades);
-  const subjectMap = useMemo(
-    () => Object.fromEntries(state.subjects.map((s) => [s.id, s.name])),
-    [state.subjects],
-  );
-
   return (
     <>
-      <GradeSimulator />
       <PageTitle
-        title="Suivi des notes"
-        subtitle="Les notes gardent leur barème réel et leur coefficient ; l’ajout se fait depuis le bouton +."
+        title="Mes notes"
+        subtitle="Retrouver, corriger ou supprimer une note en quelques gestes."
       />
-      <div className="grades-overview-grid">
-        <section className="neo-panel candle-panel">
-          <div className="panel-head">
-            <span className="label">BOUGIES · ÉVOLUTION PAR MATIÈRE</span>
-            <span>{state.grades.length} notes</span>
-          </div>
-          <CandlestickChart grades={state.grades} />
-        </section>
-        <section className="neo-panel averages-panel">
-          <div className="panel-head">
-            <span className="label">MOYENNES PAR MATIÈRE</span>
-            <span>
-              {avg !== null ? avg.toFixed(1).replace(".0", "") + "/20" : "—"}
-            </span>
-          </div>
-          <div className="subject-average-list">
-            {state.subjects.map((s) => {
-              const a = subjectAverage(state.grades, s.id);
-              return (
-                <div key={s.id}>
-                  <span>
-                    <strong>{s.name}</strong>
-                    <small>
-                      {state.grades.filter((g) => g.subjectId === s.id).length}{" "}
-                      notes
-                    </small>
-                  </span>
-                  <div className="inset-progress">
-                    <i
-                      style={{
-                        width: (a ? Math.min(100, (a / 20) * 100) : 0) + "%",
-                      }}
-                    />
-                  </div>
-                  <b>{a === null ? "—" : a.toFixed(1).replace(".0", "")}</b>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </div>
-      <section className="neo-panel section-space">
-        <div className="panel-head">
-          <span className="label">DERNIÈRES NOTES</span>
-          <span>barème · coefficient · équivalent /20</span>
-        </div>
-        <div className="grade-list detailed">
-          {state.grades.slice(0, 18).map((g) => (
-            <div key={g.id}>
-              <small>
-                {new Date(g.takenAt).toLocaleDateString("fr-FR", {
-                  day: "2-digit",
-                  month: "short",
-                })}
-              </small>
-              <span>
-                <strong>{g.title}</strong>
-                <em>{subjectMap[g.subjectId]}</em>
-              </span>
-              <span className="grade-raw">
-                <b>
-                  {g.score}/{g.outOf}
-                </b>
-                <em>coef. {g.coefficient}</em>
-              </span>
-              <b className="grade-normalized">
-                {((g.score / g.outOf) * 20).toFixed(1).replace(".0", "")}/20
-              </b>
+      <p className="calm-average">
+        Moyenne générale <strong>{avg === null ? "—" : `${avg}/20`}</strong>
+      </p>
+      <GradeManager />
+      <OptionalPanel title="Tendances et moyennes par matière">
+        <div className="grades-overview-grid">
+          <section className="neo-panel candle-panel">
+            <h2>Évolution de mes notes</h2>
+            <CandlestickChart grades={state.grades} />
+          </section>
+          <section className="neo-panel">
+            <h2>Moyennes par matière</h2>
+            <div className="calm-average-list">
+              {state.subjects.map((s) => (
+                <Link key={s.id} href={`/subjects/${s.id}`}>
+                  <span>{s.name}</span>
+                  <strong>
+                    {subjectAverage(state.grades, s.id) ?? "—"}/20
+                  </strong>
+                </Link>
+              ))}
             </div>
-          ))}
-          {!state.grades.length && (
-            <p className="empty">Aucune note enregistrée.</p>
-          )}
+          </section>
         </div>
-      </section>
+      </OptionalPanel>
+      <OptionalPanel title="Simuler une future note">
+        <GradeSimulator />
+      </OptionalPanel>
     </>
   );
 }
-
 function TasksPage() {
   const { state, addTask, updateTask, removeTask } = useProject();
   const [title, setTitle] = useState("");
@@ -1466,7 +1414,9 @@ export default function AcademicSectionPage() {
     case "revisions":
       content = (
         <>
-          <RevisionCoach />
+          <OptionalPanel title="Préparer mes prochaines révisions">
+            <RevisionCoach />
+          </OptionalPanel>
           <SmartFocus />
         </>
       );

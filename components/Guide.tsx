@@ -6,7 +6,7 @@ import { V3Dialog } from "./V3Dialog";
 const screens = [
   [
     "Ton accueil",
-    "Trois priorités, tes contrôles et les matières à surveiller.",
+    "Une prochaine action et trois accès utiles. Le mode Complet révèle les statistiques.",
   ],
   [
     "Capture rapide",
@@ -14,7 +14,7 @@ const screens = [
   ],
   [
     "Notes et matières",
-    "Conserve tous les barèmes et simule une nouvelle note.",
+    "Ajoute, modifie ou supprime une note. Les tendances et simulations restent disponibles à la demande.",
   ],
   [
     "Planning unifié",

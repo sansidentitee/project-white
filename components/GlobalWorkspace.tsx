@@ -7,6 +7,8 @@ import { useLife } from "./LifeProvider";
 import { useTrading } from "./TradingProvider";
 import { useSave } from "./SaveProvider";
 import { useComfortFilter } from "./ComfortProvider";
+import { useDailyReviews } from "./DailyReviewProvider";
+import { OptionalPanel } from "./CalmWorkspace";
 import { PageFrame } from "./PageFrame";
 import { LifePanel, LifeMetric, LifeEmpty } from "./LifeUI";
 import { localDay, prayers, reviewDue } from "@/lib/life";
@@ -17,6 +19,7 @@ export function SyncStatus() {
     life = useLife(),
     trading = useTrading(),
     saving = useSave();
+  const daily = useDailyReviews();
   const [busy, setBusy] = useState(false),
     [checked, setChecked] = useState("");
   const refresh = async () => {
@@ -27,6 +30,7 @@ export function SyncStatus() {
         project.refresh(true),
         life.refresh(true),
         trading.refresh(true),
+        daily.refresh(true),
       ]);
       setChecked(
         new Date().toLocaleTimeString("fr-FR", {
@@ -44,7 +48,11 @@ export function SyncStatus() {
         void refresh();
     };
     const storage = (e: StorageEvent) => {
-      if (e.key?.startsWith("project-white-")) focus();
+      if (
+        e.key?.startsWith("project-white-") &&
+        !e.key.startsWith("project-white-comfort-")
+      )
+        focus();
     };
     window.addEventListener("focus", focus);
     document.addEventListener("visibilitychange", focus);
@@ -55,8 +63,17 @@ export function SyncStatus() {
       window.removeEventListener("storage", storage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.refresh, life.refresh, trading.refresh, saving.pending, busy]);
-  const errors = [project.error, life.error, trading.error].filter(Boolean);
+  }, [
+    project.refresh,
+    life.refresh,
+    trading.refresh,
+    daily.refresh,
+    saving.pending,
+    busy,
+  ]);
+  const errors = [project.error, life.error, trading.error, daily.error].filter(
+    Boolean,
+  );
   return (
     <div className="v4-sync">
       <span>
@@ -129,7 +146,9 @@ export function GlobalToday() {
             </p>
           </div>
         </div>
-        <details className="comfort-overview">
+        <div className="life-grid">
+{[{href:"/academic/dashboard",title:"Académie",description:"Mes cours, mes tâches et mes notes."},{href:"/islam",title:"Islam",description:"Mes prières, mon apprentissage et mon parcours."},{href:"/finance",title:"Trading et formation",description:"Mon journal, mes séances et mes apprentissages."},{href:"/health",title:"Santé",description:"Mon énergie, mon sommeil et mes habitudes."}].map(space => <Link key={space.href} href={space.href} className="life-link-card"><strong>{space.title}</strong><span>{space.description}</span></Link>)}
+</div><OptionalPanel title="Ma journée en détail"><details className="comfort-overview">
           <summary>Voir les indicateurs du jour</summary>
           <div className="life-metrics">
             <LifeMetric
@@ -233,7 +252,7 @@ export function GlobalToday() {
               <span>Observer les 30 derniers jours →</span>
             </Link>
           </LifePanel>
-        </div>
+        </div></OptionalPanel>
       </div>
     </PageFrame>
   );
@@ -315,3 +334,4 @@ export function GlobalSearch() {
     </PageFrame>
   );
 }
+

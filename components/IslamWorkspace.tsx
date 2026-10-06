@@ -18,6 +18,7 @@ import { localDay, prayers, recentDays, text, reviewDue } from "@/lib/life";
 import { reviewError } from "@/lib/academic";
 import { memoryHistory } from "@/lib/progress";
 import { MemorizationPath } from "./ProgressWorkspace";
+import { OptionalPanel } from "./CalmWorkspace";
 
 function PrayerTracker() {
   const life = useLife(),
@@ -330,7 +331,11 @@ function IslamOverview() {
 export function IslamWorkspace({ section = "" }: { section?: string }) {
   return (
     <LifeLayout universe="islam" section={section}>
-      {(section === "" || section === "quran") && <MemorizationPath />}
+      {(section === "" || section === "quran") && (
+        <OptionalPanel title="Mon parcours de mémorisation">
+          <MemorizationPath />
+        </OptionalPanel>
+      )}
       {section === "prayers" ? (
         <PrayerTracker />
       ) : section === "quran" ? (

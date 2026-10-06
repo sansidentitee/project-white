@@ -11,6 +11,7 @@ import { useComfortFilter } from "./ComfortProvider";
 import { HealthTrends, MemorizationPath } from "./ProgressWorkspace";
 import { TradeQuality } from "./TradeReview";
 import { SmartDashboard } from "./AcademicV3";
+import { FavoriteButton, OptionalPanel } from "./CalmWorkspace";
 export function ComfortWorkspace({
   universe,
   view,
@@ -44,33 +45,38 @@ export function ComfortWorkspace({
           />
         </label>
         {view === "progress" && (
-          <div className="comfort-progress">
-            {universe === "health" ? (
-              <HealthTrends />
-            ) : universe === "islam" ? (
-              <MemorizationPath />
-            ) : universe === "finance" ? (
-              <TradeQuality />
-            ) : (
-              <SmartDashboard only="review" />
-            )}
-          </div>
+          <OptionalPanel title="Mon bilan en détail">
+            <div className="comfort-progress">
+              {universe === "health" ? (
+                <HealthTrends />
+              ) : universe === "islam" ? (
+                <MemorizationPath />
+              ) : universe === "finance" ? (
+                <TradeQuality />
+              ) : (
+                <SmartDashboard only="review" />
+              )}
+            </div>
+          </OptionalPanel>
         )}
         <div className="comfort-hub-grid">
           {sections.map((s) => (
-            <Link key={s.href} href={s.href} className="comfort-hub-card">
-              {view === "items" ? (
-                <BookOpen size={20} />
-              ) : (
-                <CheckCircle2 size={20} />
-              )}
-              <h2>{s.label}</h2>
-              <p>{s.description}</p>
-              <span>
-                Ouvrir
-                <ArrowRight size={16} />
-              </span>
-            </Link>
+            <div key={s.href} className="calm-hub-item">
+              <FavoriteButton href={s.href} label={s.label} />
+              <Link href={s.href} className="comfort-hub-card">
+                {view === "items" ? (
+                  <BookOpen size={20} />
+                ) : (
+                  <CheckCircle2 size={20} />
+                )}
+                <h2>{s.label}</h2>
+                <p>{s.description}</p>
+                <span>
+                  Ouvrir
+                  <ArrowRight size={16} />
+                </span>
+              </Link>
+            </div>
           ))}
         </div>
         {!sections.length && (

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useProject } from "./ProjectProvider";
+import { OptionalPanel } from "./CalmWorkspace";
 export function SmartFocus() {
   const { state, addSession, updateTask } = useProject();
   const [taskId, setTaskId] = useState("");
@@ -211,101 +212,106 @@ export function SmartFocus() {
           </div>
           <p role="status">{message}</p>
         </section>
-        <section className="neo-panel">
-          <h2>Réglages</h2>
-          <fieldset disabled={running || elapsed.current > 0 || saving}>
-            <label className="neo-field">
-              Mode
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as "deep" | "pomodoro")}
-              >
-                <option value="deep">Deep Focus</option>
-                <option value="pomodoro">Pomodoro</option>
-              </select>
-            </label>
-            <label className="neo-field">
-              Durée (min)
-              <input
-                type="number"
-                min="1"
-                max="720"
-                value={minutes}
-                onChange={(e) => {
-                  const n = Math.min(
-                    720,
-                    Math.max(1, Number(e.target.value) || 1),
-                  );
-                  setMinutes(n);
-                  setRemaining(n * 60);
-                }}
-              />
-            </label>
-            {mode === "pomodoro" && (
-              <>
-                <label className="neo-field">
-                  Pause courte
-                  <input
-                    type="number"
-                    min="1"
-                    max="60"
-                    value={shortBreak}
-                    onChange={(e) =>
-                      setShort(Math.max(1, Number(e.target.value)))
-                    }
-                  />
-                </label>
-                <label className="neo-field">
-                  Pause longue
-                  <input
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={longBreak}
-                    onChange={(e) =>
-                      setLong(Math.max(1, Number(e.target.value)))
-                    }
-                  />
-                </label>
-                <label className="neo-field">
-                  Cycles avant pause longue
-                  <input
-                    type="number"
-                    min="1"
-                    max="12"
-                    value={cycles}
-                    onChange={(e) =>
-                      setCycles(Math.max(1, Number(e.target.value)))
-                    }
-                  />
-                </label>
-              </>
-            )}
-          </fieldset>
-          <button
-            className="neo-pill"
-            disabled={running || elapsed.current > 0}
-            onClick={persistSettings}
-          >
-            Enregistrer les réglages
-          </button>
-          <p>
-            La fin du minuteur enregistre le temps de travail. Les pauses ne
-            sont pas comptabilisées.
-          </p>
-        </section>
+        <OptionalPanel title="Réglages du Focus">
+          <section className="neo-panel">
+            <fieldset disabled={running || elapsed.current > 0 || saving}>
+              <label className="neo-field">
+                Mode
+                <select
+                  value={mode}
+                  onChange={(e) =>
+                    setMode(e.target.value as "deep" | "pomodoro")
+                  }
+                >
+                  <option value="deep">Deep Focus</option>
+                  <option value="pomodoro">Pomodoro</option>
+                </select>
+              </label>
+              <label className="neo-field">
+                Durée (min)
+                <input
+                  type="number"
+                  min="1"
+                  max="720"
+                  value={minutes}
+                  onChange={(e) => {
+                    const n = Math.min(
+                      720,
+                      Math.max(1, Number(e.target.value) || 1),
+                    );
+                    setMinutes(n);
+                    setRemaining(n * 60);
+                  }}
+                />
+              </label>
+              {mode === "pomodoro" && (
+                <>
+                  <label className="neo-field">
+                    Pause courte
+                    <input
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={shortBreak}
+                      onChange={(e) =>
+                        setShort(Math.max(1, Number(e.target.value)))
+                      }
+                    />
+                  </label>
+                  <label className="neo-field">
+                    Pause longue
+                    <input
+                      type="number"
+                      min="1"
+                      max="120"
+                      value={longBreak}
+                      onChange={(e) =>
+                        setLong(Math.max(1, Number(e.target.value)))
+                      }
+                    />
+                  </label>
+                  <label className="neo-field">
+                    Cycles avant pause longue
+                    <input
+                      type="number"
+                      min="1"
+                      max="12"
+                      value={cycles}
+                      onChange={(e) =>
+                        setCycles(Math.max(1, Number(e.target.value)))
+                      }
+                    />
+                  </label>
+                </>
+              )}
+            </fieldset>
+            <button
+              className="neo-pill"
+              disabled={running || elapsed.current > 0}
+              onClick={persistSettings}
+            >
+              Enregistrer les réglages
+            </button>
+            <p>
+              La fin du minuteur enregistre le temps de travail. Les pauses ne
+              sont pas comptabilisées.
+            </p>
+          </section>
+        </OptionalPanel>
       </div>
-      <section className="neo-panel section-space">
-        <h2>Historique des sessions</h2>
-        {state.sessions.slice(0, 20).map((s) => (
-          <p key={s.id}>
-            {state.subjects.find((x) => x.id === s.subjectId)?.name ||
-              "Session libre"}{" "}
-            · {s.durationMin} min ·{" "}
-            {new Date(s.endedAt).toLocaleDateString("fr-FR")}
-          </p>
-        ))}
-      </section>
+      <OptionalPanel title="Historique de mes sessions">
+        <section className="neo-panel section-space">
+          <h2>Historique des sessions</h2>
+          {state.sessions.slice(0, 20).map((s) => (
+            <p key={s.id}>
+              {state.subjects.find((x) => x.id === s.subjectId)?.name ||
+                "Session libre"}{" "}
+              · {s.durationMin} min ·{" "}
+              {new Date(s.endedAt).toLocaleDateString("fr-FR")}
+            </p>
+          ))}
+        </section>
+      </OptionalPanel>
     </>
   );
 }

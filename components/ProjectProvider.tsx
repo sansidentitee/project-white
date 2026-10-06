@@ -26,6 +26,7 @@ import type {
 } from "@/lib/types";
 import { autoPlan } from "@/lib/scheduler";
 import { writeLocalIfChanged } from "@/lib/localStore";
+import { validateGrade } from "@/lib/gradeValidation";
 
 const empty: ProjectState = {
   subjects: [],
@@ -59,6 +60,8 @@ type ProjectCtx = {
   updateTask: (id: string, patch: Partial<Task>) => Promise<void>;
   removeTask: (id: string) => Promise<void>;
   addGrade: (grade: Omit<Grade, "id">) => Promise<void>;
+  updateGrade: (id: string, grade: Omit<Grade, "id">) => Promise<void>;
+  removeGrade: (id: string) => Promise<void>;
   addChapter: (chapter: Omit<Chapter, "id">) => Promise<void>;
   updateChapter: (id: string, patch: Partial<Chapter>) => Promise<void>;
   addSession: (session: Omit<WorkSession, "id">) => Promise<void>;
@@ -460,7 +463,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  async function addGrade(input: Omit<Grade, "id">) {
+  async function addGrade(input: Omit<Grade, "id">, restoredId?: string) {
+    validateGrade(input);
     if (
       !Number.isFinite(input.score) ||
       input.score < 0 ||
@@ -474,13 +478,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     if (!demoMode && (!supabase || !user))
       throw new Error("Reconnecte-toi pour enregistrer.");
     if (demoMode || !supabase || !user) {
-      const x = { ...input, id: uuid() };
+      const x = { ...input, id: restoredId || uuid() };
       updateLocal((s) => ({ ...s, grades: [x, ...s.grades] }));
       return;
     }
     const { data, error } = await supabase
       .from("grades")
       .insert({
+        ...(restoredId ? { id: restoredId } : {}),
         user_id: user.id,
         subject_id: input.subjectId,
         title: input.title,
@@ -496,6 +501,68 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       account.current !== owner
         ? s
         : { ...s, grades: [dbToGrade(data), ...s.grades] },
+    );
+  }
+
+  async function updateGrade(id: string, input: Omit<Grade, "id">) {
+    validateGrade(input);
+    if (!state.grades.some((g) => g.id === id))
+      throw Error("Cette note n’existe plus. Actualise la page.");
+    if (!demoMode && (!supabase || !user))
+      throw Error("Reconnecte-toi pour enregistrer.");
+    if (demoMode || !supabase || !user) {
+      updateLocal((s) => ({
+        ...s,
+        grades: s.grades.map((g) => (g.id === id ? { ...input, id } : g)),
+      }));
+      return;
+    }
+    const { data, error } = await supabase
+      .from("grades")
+      .update({
+        subject_id: input.subjectId,
+        title: input.title,
+        score: input.score,
+        out_of: input.outOf,
+        coefficient: input.coefficient,
+        taken_at: input.takenAt,
+      })
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select("*")
+      .single();
+    if (error) throw error;
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : {
+            ...s,
+            grades: s.grades.map((g) => (g.id === id ? dbToGrade(data) : g)),
+          },
+    );
+  }
+  async function removeGrade(id: string) {
+    if (!demoMode && (!supabase || !user))
+      throw Error("Reconnecte-toi pour enregistrer.");
+    if (demoMode || !supabase || !user) {
+      updateLocal((s) => ({
+        ...s,
+        grades: s.grades.filter((g) => g.id !== id),
+      }));
+      return;
+    }
+    const { error } = await supabase
+      .from("grades")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select("id")
+      .single();
+    if (error) throw error;
+    setState((s) =>
+      account.current !== owner
+        ? s
+        : { ...s, grades: s.grades.filter((g) => g.id !== id) },
     );
   }
 
@@ -959,6 +1026,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       updateTask,
       removeTask,
       addGrade,
+      updateGrade,
+      removeGrade,
       addChapter,
       updateChapter,
       addSession,
@@ -1007,6 +1076,22 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     ...value,
     addTask: (v) => saving.run("Nouvelle tâche", () => addTask(v)),
     addGrade: (v) => saving.run("Nouvelle note", () => addGrade(v)),
+    updateGrade: (id, v) => {
+      const before = state.grades.find((g) => g.id === id);
+      return saving.run(
+        "Modification de note",
+        () => updateGrade(id, v),
+        before ? () => updateGrade(id, before) : undefined,
+      );
+    },
+    removeGrade: (id) => {
+      const before = state.grades.find((g) => g.id === id);
+      return saving.run(
+        "Suppression de note",
+        () => removeGrade(id),
+        before ? () => addGrade(before, before.id) : undefined,
+      );
+    },
     addChapter: (v) => saving.run("Nouveau chapitre", () => addChapter(v)),
     addSession: (v) => saving.run("Session Focus", () => addSession(v)),
     addResource: (v) => saving.run("Nouvelle ressource", () => addResource(v)),

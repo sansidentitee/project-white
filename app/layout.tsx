@@ -7,6 +7,7 @@ import { TradingProvider } from "@/components/TradingProvider";
 import { LifeProvider } from "@/components/LifeProvider";
 import { SaveProvider } from "@/components/SaveProvider";
 import { ComfortProvider } from "@/components/ComfortProvider";
+import { DailyReviewProvider } from "@/components/DailyReviewProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { WorldProvider } from "@/components/WorldProvider";
 
@@ -29,7 +30,9 @@ export default function RootLayout({
                 <ProjectProvider>
                   <TradingProvider>
                     <LifeProvider>
-                      <ComfortProvider>{children}</ComfortProvider>
+                      <ComfortProvider>
+                        <DailyReviewProvider>{children}</DailyReviewProvider>
+                      </ComfortProvider>
                     </LifeProvider>
                   </TradingProvider>
                 </ProjectProvider>
@@ -46,3 +49,4 @@ import "./academic-v3.css";
 import "./universes.css";
 import "./progress.css";
 import "./comfort.css";
+import "./calm.css";
