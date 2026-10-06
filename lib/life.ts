@@ -81,6 +81,27 @@ export function validDay(day: string) {
   return !Number.isNaN(d.getTime()) && localDay(d) === day;
 }
 export function validateLife(input: LifeInput) {
+  if (
+    input.data?.type === "trade-review" &&
+    ((input.data.risk != null &&
+      (typeof input.data.risk !== "number" || input.data.risk <= 0)) ||
+      (input.data.fees != null &&
+        (typeof input.data.fees !== "number" || input.data.fees < 0)))
+  )
+    throw new Error(
+      "Le risque initial doit être positif et les frais positifs ou nuls.",
+    );
+  if (
+    input.data?.studioType === "quiz" &&
+    (!["A", "B", "C", "D"].includes(String(input.data.answerKey)) ||
+      !String(input.data["option" + input.data.answerKey] || "").trim() ||
+      ["A", "B", "C", "D"].filter((k) =>
+        String(input.data?.["option" + k] || "").trim(),
+      ).length < 2)
+  )
+    throw new Error(
+      "Un quiz nécessite deux choix et une bonne réponse renseignée.",
+    );
   if (!kinds[input.universe]?.includes(input.kind))
     throw new Error("Type incompatible avec cet univers.");
   if (!input.title.trim() || input.title.length > 300)

@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useLife } from "./LifeProvider";
+import { LearningStudio } from "./ProgressWorkspace";
+import { TradeReview, TradeQuality } from "./TradeReview";
 import { useTrading, Trade } from "./TradingProvider";
 import {
   ActionFeedback,
@@ -24,6 +26,7 @@ function TradeJournalEntry({ trade }: { trade: Trade }) {
     [note, setNote] = useState(trade.note || "");
   return (
     <LifePanel title={trade.asset}>
+      <TradeReview trade={trade} />
       <small>
         {new Date(trade.openedAt).toLocaleDateString("fr-FR")} ·{" "}
         {trade.status === "open" ? "Position ouverte" : "Clôturée"}
@@ -417,6 +420,8 @@ function FinanceOverview() {
 export function FinanceWorkspace({ section = "" }: { section?: string }) {
   return (
     <LifeLayout universe="finance" section={section}>
+      {(section === "" || section === "analyses") && <TradeQuality />}
+      {section === "learning" && <LearningStudio />}
       {section === "analyses" ? (
         <TradingAnalytics />
       ) : section === "journal" ? (

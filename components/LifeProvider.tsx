@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useAuth } from "./AuthProvider";
+import { useSave } from "./SaveProvider";
 import { supabase } from "@/lib/supabase/client";
 import { LifeEntry, LifeInput, LifeUniverse, validateLife } from "@/lib/life";
 
@@ -20,7 +21,7 @@ type Context = {
   local: boolean;
   save: (input: LifeInput) => Promise<LifeEntry>;
   archive: (id: string, archived?: boolean) => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: (background?: boolean) => Promise<void>;
   upload: (
     universe: LifeUniverse,
     file: File,
@@ -43,6 +44,7 @@ function fromDb(row: any): LifeEntry {
   };
 }
 export function LifeProvider({ children }: { children: React.ReactNode }) {
+  const saving = useSave();
   const { user, configured, loading: authLoading } = useAuth();
   const [entries, setEntries] = useState<LifeEntry[]>([]),
     [loading, setLoading] = useState(true),
@@ -56,47 +58,51 @@ export function LifeProvider({ children }: { children: React.ReactNode }) {
     records.current = next;
     setEntries(next);
   }
-  const refresh = useCallback(async () => {
-    if (authLoading) return;
-    const current = owner;
-    const turn = ++ticket.current;
-    setLoading(true);
-    setError("");
-    try {
-      let next: LifeEntry[] = [];
-      if (!configured) {
-        const raw = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
-        if (!Array.isArray(raw)) throw new Error("Sauvegarde locale invalide.");
-        next = raw;
-      } else if (user && supabase) {
-        let offset = 0;
-        while (true) {
-          const { data, error: dbError } = await supabase
-            .from("life_entries")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("created_at")
-            .order("id")
-            .range(offset, offset + 999);
-          if (dbError) throw dbError;
-          next.push(...(data || []).map(fromDb));
-          if (!data || data.length < 1000) break;
-          offset += 1000;
+  const refresh = useCallback(
+    async (background = false) => {
+      if (authLoading) return;
+      const current = owner;
+      const turn = ++ticket.current;
+      if (!background) setLoading(true);
+      setError("");
+      try {
+        let next: LifeEntry[] = [];
+        if (!configured) {
+          const raw = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
+          if (!Array.isArray(raw))
+            throw new Error("Sauvegarde locale invalide.");
+          next = raw;
+        } else if (user && supabase) {
+          let offset = 0;
+          while (true) {
+            const { data, error: dbError } = await supabase
+              .from("life_entries")
+              .select("*")
+              .eq("user_id", user.id)
+              .order("created_at")
+              .order("id")
+              .range(offset, offset + 999);
+            if (dbError) throw dbError;
+            next.push(...(data || []).map(fromDb));
+            if (!data || data.length < 1000) break;
+            offset += 1000;
+          }
         }
+        if (scope.current === current && ticket.current === turn) replace(next);
+      } catch (e) {
+        if (scope.current === current && ticket.current === turn) {
+          replace([]);
+          setError(
+            "Chargement impossible. Réessaie avant de modifier tes données.",
+          );
+        }
+      } finally {
+        if (scope.current === current && ticket.current === turn)
+          setLoading(false);
       }
-      if (scope.current === current && ticket.current === turn) replace(next);
-    } catch (e) {
-      if (scope.current === current && ticket.current === turn) {
-        replace([]);
-        setError(
-          "Chargement impossible. Réessaie avant de modifier tes données.",
-        );
-      }
-    } finally {
-      if (scope.current === current && ticket.current === turn)
-        setLoading(false);
-    }
-  }, [authLoading, configured, owner, user]);
+    },
+    [authLoading, configured, owner, user],
+  );
   useEffect(() => {
     replace([]);
     void refresh();
@@ -117,6 +123,56 @@ export function LifeProvider({ children }: { children: React.ReactNode }) {
     if (configured && (!user || !supabase))
       throw new Error("Reconnecte-toi pour enregistrer.");
   }
+  async function undoEntry(before: LifeEntry | undefined, after: LifeEntry) {
+    if (scope.current !== owner) throw new Error("Le compte a changé.");
+    const latest = records.current.find((e) => e.id === after.id);
+    if (JSON.stringify(latest) !== JSON.stringify(after))
+      throw new Error(
+        "Cette entrée a changé depuis. Recharge avant de la modifier.",
+      );
+    if (configured && supabase && user) {
+      const { data, error } = await supabase
+        .from("life_entries")
+        .select("*")
+        .eq("id", after.id)
+        .eq("user_id", user.id)
+        .single();
+      if (error || JSON.stringify(fromDb(data)) !== JSON.stringify(after))
+        throw new Error(
+          "Cette entrée a changé sur ton compte. Actualise les données.",
+        );
+    }
+    if (before) {
+      await save(before);
+      if (before.archived) await archive(before.id, true);
+    } else await archive(after.id, true);
+  }
+  const trackedSave = (input: LifeInput) => {
+    const before = records.current.find((e) =>
+      input.id
+        ? e.id === input.id
+        : !!input.key &&
+          e.key === input.key &&
+          e.kind === input.kind &&
+          e.universe === input.universe,
+    );
+    return saving.run(
+      input.title,
+      () => save(input),
+      (after) => undoEntry(before, after),
+    );
+  };
+  const trackedArchive = (id: string, archived = true) => {
+    const before = records.current.find((e) => e.id === id);
+    return saving.run(
+      archived ? "Retrait" : "Restauration",
+      () => archive(id, archived),
+      async () => {
+        if (scope.current !== owner) throw Error("Le compte a changé.");
+        await archive(id, before?.archived || false);
+      },
+    );
+  };
   function persist(next: LifeEntry[]) {
     try {
       localStorage.setItem(LOCAL_KEY, JSON.stringify(next));
@@ -273,8 +329,8 @@ export function LifeProvider({ children }: { children: React.ReactNode }) {
         loading,
         error,
         local: !configured,
-        save,
-        archive,
+        save: trackedSave,
+        archive: trackedArchive,
         refresh,
         upload,
         openFile,

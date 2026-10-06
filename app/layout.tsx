@@ -5,6 +5,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { ProjectProvider } from "@/components/ProjectProvider";
 import { TradingProvider } from "@/components/TradingProvider";
 import { LifeProvider } from "@/components/LifeProvider";
+import { SaveProvider } from "@/components/SaveProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { WorldProvider } from "@/components/WorldProvider";
 
@@ -23,11 +24,13 @@ export default function RootLayout({
         <ThemeProvider>
           <WorldProvider>
             <AuthProvider>
-              <ProjectProvider>
-                <TradingProvider>
-                  <LifeProvider>{children}</LifeProvider>
-                </TradingProvider>
-              </ProjectProvider>
+              <SaveProvider>
+                <ProjectProvider>
+                  <TradingProvider>
+                    <LifeProvider>{children}</LifeProvider>
+                  </TradingProvider>
+                </ProjectProvider>
+              </SaveProvider>
             </AuthProvider>
           </WorldProvider>
         </ThemeProvider>
@@ -38,3 +41,4 @@ export default function RootLayout({
 
 import "./academic-v3.css";
 import "./universes.css";
+import "./progress.css";
